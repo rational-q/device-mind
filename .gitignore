@@ -1,0 +1,80 @@
+# ============ Java / Maven ============
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*
+dependency-reduced-pom.xml
+
+# ============ IDE ============
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+out/
+bin/
+
+# ============ macOS / Windows / Linux ============
+.DS_Store
+Thumbs.db
+*~
+*.swp
+*.swo
+
+# ============ Logs ============
+logs/
+*.log
+*.log.*
+log/
+
+# ============ Python (agent-tutorial/python-langgraph) ============
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.Python
+.venv/
+venv/
+env/
+.env
+.env.local
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+pip-log.txt
+
+# ============ C# / .NET (csharp-learning) ============
+obj/
+[Bb]in/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+*.userprefs
+.vs/
+
+# ============ Node (如果 devops 引入) ============
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ============ Docker / 数据卷 ============
+docker-data/
+*.pid
+
+# ============ 其它 ============
+.cache/
+.tmp/
+*.tmp
+*.bak
+*.orig
