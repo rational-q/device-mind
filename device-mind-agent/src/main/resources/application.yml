@@ -1,0 +1,35 @@
+server:
+  port: 8081
+
+logging:
+  file:
+    name: ${LOG_PATH:./logs}/agent.log
+
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+# DeepSeek API 配置
+deepseek:
+  api:
+    url: ${DEEPSEEK_API_URL:https://api.deepseek.com}
+    key: ${DEEPSEEK_API_KEY:}
+    timeout: 30                 # 请求超时（秒）
+
+# Core 服务地址（Agent 调用 Core 接口时使用）
+core-service:
+  url: ${CORE_SERVICE_URL:http://localhost:8080}
+
+# Actuator 端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    com.devicemind.agent: DEBUG

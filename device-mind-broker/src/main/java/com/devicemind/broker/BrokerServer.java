@@ -2,11 +2,13 @@ package com.devicemind.broker;
 
 import com.devicemind.broker.codec.MqttDecoder;
 import com.devicemind.broker.codec.MqttEncoder;
+import com.devicemind.broker.config.BrokerConfig;
 import com.devicemind.broker.handler.ConnectHandler;
 import com.devicemind.broker.handler.DisconnectHandler;
 import com.devicemind.broker.handler.ExceptionHandler;
 import com.devicemind.broker.handler.PingReqHandler;
 import com.devicemind.broker.handler.PublishHandler;
+import com.devicemind.broker.service.MessageForwarder;
 import com.devicemind.broker.session.SessionManager;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -23,7 +25,6 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
@@ -32,13 +33,10 @@ import java.util.concurrent.TimeUnit;
 @Component
 @RequiredArgsConstructor
 public class BrokerServer {
+
     private final SessionManager sessionManager;
-
-    @Value("${broker.mqtt-port:1883}")
-    private int mqttPort;
-
-    @Value("${broker.heartbeat-timeout:120}")
-    private int heartbeatTimeout;
+    private final BrokerConfig brokerConfig;
+    private final MessageForwarder messageForwarder;
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
@@ -46,34 +44,37 @@ public class BrokerServer {
 
     @PostConstruct
     public void start() {
-        bossGroup = new NioEventLoopGroup(1);
-        workerGroup = new NioEventLoopGroup(Runtime.getRuntime().availableProcessors() * 2);
+        int bossThreads = brokerConfig.getBossThreads();
+        int workerThreads = Runtime.getRuntime().availableProcessors() * brokerConfig.getWorkerThreadsMultiplier();
+
+        bossGroup = new NioEventLoopGroup(bossThreads);
+        workerGroup = new NioEventLoopGroup(workerThreads);
 
         try {
             ServerBootstrap bootstrap = new ServerBootstrap();
             bootstrap.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
-                    .option(ChannelOption.SO_BACKLOG, 1024)
+                    .option(ChannelOption.SO_BACKLOG, brokerConfig.getBacklog())
                     .childOption(ChannelOption.SO_KEEPALIVE, true)
                     .childOption(ChannelOption.TCP_NODELAY, true)
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         protected void initChannel(SocketChannel ch) {
                             ChannelPipeline pipeline = ch.pipeline();
-                            pipeline.addLast(new IdleStateHandler(heartbeatTimeout, 0, 0, TimeUnit.SECONDS));
+                            pipeline.addLast(new IdleStateHandler(brokerConfig.getHeartbeatTimeout(), 0, 0, TimeUnit.SECONDS));
                             pipeline.addLast(new MqttDecoder());
                             pipeline.addLast(new MqttEncoder());
                             pipeline.addLast(new ConnectHandler(sessionManager));
-                            pipeline.addLast(new PublishHandler(sessionManager));
+                            pipeline.addLast(new PublishHandler(sessionManager, messageForwarder));
                             pipeline.addLast(new PingReqHandler(sessionManager));
                             pipeline.addLast(new DisconnectHandler(sessionManager));
                             pipeline.addLast(new ExceptionHandler());
                         }
                     });
 
-            ChannelFuture future = bootstrap.bind(mqttPort).sync();
+            ChannelFuture future = bootstrap.bind(brokerConfig.getMqttPort()).sync();
             serverChannel = future.channel();
-            log.info("MQTT Broker 启动成功，监听端口: {}", mqttPort);
+            log.info("MQTT Broker 启动成功，监听端口: {}", brokerConfig.getMqttPort());
         } catch (Exception e) {
             log.error("MQTT Broker 启动失败", e);
             bossGroup.shutdownGracefully();

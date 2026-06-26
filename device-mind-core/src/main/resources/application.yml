@@ -1,0 +1,32 @@
+server:
+  port: 8080
+
+logging:
+  file:
+    name: ${LOG_PATH:./logs}/core.log
+
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  kafka:
+    consumer:
+      group-id: core-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      max-poll-records: 50          # 每批拉取50条，控制内存
+      enable-auto-commit: false     # 手动提交，保证消息不丢
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    listener:
+      ack-mode: manual              # 手动确认模式
+      concurrency: 3                # 并行线程数 = 分区数
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized

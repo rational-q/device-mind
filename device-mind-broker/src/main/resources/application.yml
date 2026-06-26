@@ -1,14 +1,26 @@
 server:
-  port: 1884   # Spring Boot 管理端口（健康检查等），Netty MQTT 端口在代码里单独配
-
-broker:
-  mqtt-port: 1883           # Netty MQTT 监听端口
-  heartbeat-timeout: 120    # 心跳超时（秒），超时断开设备连接
-
-core-service:
-  url: http://localhost:8080  # core 服务地址（broker 收到数据后转发到这里）
+  port: 1884
 
 logging:
-  level:
-    com.devicemind.broker: DEBUG    # broker 模块的日志级别
-    io.netty: INFO                  # Netty 自身的日志级别
+  file:
+    name: ${LOG_PATH:./logs}/broker.log
+
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+broker:
+  mqtt-port: 1883
+  heartbeat-timeout: 120
+  boss-threads: 1
+  worker-threads-multiplier: 2
+  backlog: 1024
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
