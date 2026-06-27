@@ -1,0 +1,67 @@
+spring:
+  datasource:
+    mysql:
+      url: jdbc:mysql://localhost:3306/devicemind?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+      username: root
+      password:
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      hikari:
+        pool-name: mysql-pool
+        maximum-pool-size: 10
+        minimum-idle: 2
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
+    timescaledb:
+      url: jdbc:postgresql://localhost:5432/devicemind_ts
+      username: root
+      password:
+      driver-class-name: org.postgresql.Driver
+      hikari:
+        pool-name: timescale-pool
+        maximum-pool-size: 10
+        minimum-idle: 2
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      timeout: 3000
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: 3000
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      auto-offset-reset: latest
+
+kafka:
+  topics:
+    device-data: device-data
+
+agent-service:
+  url: http://localhost:8081
+
+broker-service:
+  url: http://localhost:1884
+
+device:
+  offline:
+    alert-phone: ${DEVICE_OFFLINE_ALERT_PHONE:}
+  heartbeat:
+    timeout-minutes: ${DEVICE_HEARTBEAT_TIMEOUT:30}
+
+alert:
+  critical:
+    alert-phone: ${ALERT_CRITICAL_PHONE:}
+
+logging:
+  level:
+    com.devicemind.core: DEBUG
+    com.devicemind.core.persistence.mapper: DEBUG

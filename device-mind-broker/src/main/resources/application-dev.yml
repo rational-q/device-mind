@@ -1,0 +1,18 @@
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+kafka:
+  topics:
+    device-data: device-data
+
+core-service:
+  url: http://localhost:8080
+
+logging:
+  level:
+    com.devicemind.broker: DEBUG
+    io.netty: INFO

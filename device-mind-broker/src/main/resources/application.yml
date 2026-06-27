@@ -1,0 +1,26 @@
+server:
+  port: 1884
+
+logging:
+  file:
+    name: ${LOG_PATH:./logs}/broker.log
+
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+broker:
+  mqtt-port: 1883
+  heartbeat-timeout: 120
+  boss-threads: 1
+  worker-threads-multiplier: 2
+  backlog: 1024
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
