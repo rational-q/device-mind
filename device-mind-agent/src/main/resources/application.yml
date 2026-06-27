@@ -1,13 +1,28 @@
 server:
   port: 8081
 
-logging:
-  file:
-    name: ${LOG_PATH:./logs}/agent.log
-
 spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+  # TimescaleDB 数据源（NL2SQL 执行查询使用）
+  datasource:
+    url: ${TSDB_URL:jdbc:postgresql://localhost:5432/devicemind_ts}
+    username: ${TSDB_USERNAME:postgres}
+    password: ${TSDB_PASSWORD:root123}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: agent-tsdb-pool
+      maximum-pool-size: 3
+      minimum-idle: 0
+      connection-timeout: 5000
+      idle-timeout: 300000
+      max-lifetime: 600000
+
+logging:
+  file:
+    name: ${LOG_PATH:./logs}/agent.log
+  level:
+    com.devicemind.agent: DEBUG
 
 # DeepSeek API 配置
 deepseek:
@@ -30,6 +45,11 @@ management:
     health:
       show-details: when_authorized
 
-logging:
-  level:
-    com.devicemind.agent: DEBUG
+# SpringDoc OpenAPI
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    try-it-out-enabled: true
+    operations-sorter: method

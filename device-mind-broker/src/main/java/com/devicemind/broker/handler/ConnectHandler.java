@@ -1,6 +1,8 @@
 package com.devicemind.broker.handler;
 
 import com.devicemind.broker.model.ConnectMessage;
+import com.devicemind.broker.service.DeviceAuthService;
+import com.devicemind.broker.service.DeviceAuthService;
 import com.devicemind.broker.session.DeviceSession;
 import com.devicemind.broker.session.SessionManager;
 import com.devicemind.common.utils.TraceContext;
@@ -13,17 +15,33 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ConnectHandler extends SimpleChannelInboundHandler<ConnectMessage> {
     private final SessionManager sessionManager;
+    private final DeviceAuthService deviceAuthService;
 
-    public ConnectHandler(SessionManager sessionManager) {
+    public ConnectHandler(SessionManager sessionManager, DeviceAuthService deviceAuthService) {
         super(false);
         this.sessionManager = sessionManager;
+        this.deviceAuthService = deviceAuthService;
     }
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, ConnectMessage msg) {
         TraceContext.set();
         try {
-            log.info("处理连接请求: clientId={}", msg.getClientId());
+            String clientId = msg.getClientId();
+            log.info("处理连接请求: clientId={}", clientId);
+
+            // 设备认证
+            if (!deviceAuthService.isRegistered(clientId)) {
+                log.warn("未注册的设备尝试连接，拒绝: clientId={}", clientId);
+                ByteBuf connNack = Unpooled.buffer(4);
+                connNack.writeByte(0x20);
+                connNack.writeByte(0x02);
+                connNack.writeByte(0x00);
+                connNack.writeByte(0x05); // 0x05 = 未授权
+                ctx.writeAndFlush(connNack);
+                ctx.close();
+                return;
+            }
 
             DeviceSession session = new DeviceSession();
             session.setClientId(msg.getClientId());
@@ -32,6 +50,9 @@ public class ConnectHandler extends SimpleChannelInboundHandler<ConnectMessage> 
             session.setLastHeartbeatAt(System.currentTimeMillis());
             session.setKeepAlive(msg.getKeepAlive());
             sessionManager.register(session);
+
+            // 通知 Core 设备上线
+            deviceAuthService.notifyStatusChange(clientId, "ONLINE");
 
             // CONNACK 报文: 0x20 0x02 0x00 0x00
             ByteBuf connAck = Unpooled.buffer(4);

@@ -7,7 +7,8 @@
         SELECT EXTRACT(EPOCH FROM TIME) AS time,
                DEVICE_ID               AS deviceId,
                ATTR_NAME               AS attrName,
-               VALUE                   AS value
+               VALUE                   AS value,
+               VALUE_TEXT              AS valueText
         FROM device_data
         <where>
             <if test="deviceId != null and deviceId != ''">

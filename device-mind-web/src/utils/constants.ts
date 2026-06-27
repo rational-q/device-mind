@@ -21,3 +21,9 @@ export const COMMAND_STATUS_MAP: Record<string, string> = {
   FAILED: '失败',
   EXPIRED: '已过期',
 }
+
+export const SCENE_STATUS_MAP: Record<string, string> = {
+  SUCCESS: '成功',
+  PARTIAL: '部分成功',
+  FAILED: '失败',
+}

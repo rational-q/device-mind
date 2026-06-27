@@ -33,21 +33,32 @@ public class DmDeviceData {
     @TableField("VALUE")
     private Double value;
 
+    /** 字符串值（兼容非数值类型的属性） */
+    @TableField("VALUE_TEXT")
+    private String valueText;
+
     /**
-     * 从数据点 DTO 构建实体（仅数值类型可写入 TimescaleDB）
+     * 从数据点 DTO 构建实体
+     * <p>
+     * 数值类型存入 value，非数值类型（字符串/枚举）存入 value_text
      *
-     * @return 实体对象，非数值类型返回 null
+     * @return 实体对象，空值返回 null
      */
     public static DmDeviceData from(String deviceId, String attrName, Object value, long timestamp) {
-        Double doubleValue = toDouble(value);
-        if (doubleValue == null) {
-            return null;
-        }
-        return new DmDeviceData()
+        if (value == null) return null;
+
+        DmDeviceData data = new DmDeviceData()
                 .setTime(Instant.ofEpochSecond(timestamp))
                 .setDeviceId(deviceId)
-                .setAttrName(attrName)
-                .setValue(doubleValue);
+                .setAttrName(attrName);
+
+        Double doubleValue = toDouble(value);
+        if (doubleValue != null) {
+            data.setValue(doubleValue);
+        } else {
+            data.setValueText(value.toString());
+        }
+        return data;
     }
 
     /**

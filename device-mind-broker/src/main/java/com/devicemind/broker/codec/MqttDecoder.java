@@ -1,6 +1,7 @@
 package com.devicemind.broker.codec;
 
 import com.devicemind.broker.model.*;
+import com.devicemind.broker.model.SubscribeMessage.Subscription;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
@@ -90,6 +91,10 @@ public class MqttDecoder extends ByteToMessageDecoder {
                 return decodeConnect(payload);
             case PUBLISH:
                 return decodePublish(flags, payload);
+            case SUBSCRIBE:
+                return decodeSubscribe(payload);
+            case UNSUBSCRIBE:
+                return decodeUnsubscribe(payload);
             case PINGREQ:
                 return new PingReqMessage();
             case DISCONNECT:
@@ -222,6 +227,77 @@ public class MqttDecoder extends ByteToMessageDecoder {
 
         log.info("PUBLISH 解析成功: topic={}, qos={}, payloadSize={}字节",
                 msg.getTopic(), msg.getQos(), data.length);
+        return msg;
+    }
+
+    /**
+     * 解析 SUBSCRIBE 报文
+     */
+    private SubscribeMessage decodeSubscribe(ByteBuf payload) {
+        SubscribeMessage msg = new SubscribeMessage();
+
+        if (payload.readableBytes() < 2) {
+            throw new IllegalArgumentException("SUBSCRIBE PacketId需要2字节");
+        }
+        msg.setPacketId(payload.readUnsignedShort());
+
+        List<SubscribeMessage.Subscription> subs = new java.util.ArrayList<>();
+        while (payload.readableBytes() > 0) {
+            if (payload.readableBytes() < 2) {
+                throw new IllegalArgumentException("TopicFilter长度字段需要2字节");
+            }
+            int topicLen = payload.readUnsignedShort();
+            if (payload.readableBytes() < topicLen) {
+                throw new IllegalArgumentException("TopicFilter内容需要" + topicLen + "字节");
+            }
+            byte[] topicBytes = new byte[topicLen];
+            payload.readBytes(topicBytes);
+            String topicFilter = new String(topicBytes, StandardCharsets.UTF_8);
+
+            if (payload.readableBytes() < 1) {
+                throw new IllegalArgumentException("QoS需要1字节");
+            }
+            int qos = payload.readUnsignedByte();
+
+            SubscribeMessage.Subscription sub = new SubscribeMessage.Subscription();
+            sub.setTopicFilter(topicFilter);
+            sub.setMaxQos(qos);
+            subs.add(sub);
+        }
+
+        msg.setSubscriptions(subs);
+        log.info("SUBSCRIBE 解析成功: packetId={}, topics={}",
+                msg.getPacketId(), subs.stream().map(s -> s.getTopicFilter() + "@QoS" + s.getMaxQos()).toList());
+        return msg;
+    }
+
+    /**
+     * 解析 UNSUBSCRIBE 报文
+     */
+    private UnsubscribeMessage decodeUnsubscribe(ByteBuf payload) {
+        UnsubscribeMessage msg = new UnsubscribeMessage();
+
+        if (payload.readableBytes() < 2) {
+            throw new IllegalArgumentException("UNSUBSCRIBE PacketId需要2字节");
+        }
+        msg.setPacketId(payload.readUnsignedShort());
+
+        List<String> topicFilters = new java.util.ArrayList<>();
+        while (payload.readableBytes() > 0) {
+            if (payload.readableBytes() < 2) {
+                throw new IllegalArgumentException("TopicFilter长度字段需要2字节");
+            }
+            int topicLen = payload.readUnsignedShort();
+            if (payload.readableBytes() < topicLen) {
+                throw new IllegalArgumentException("TopicFilter内容需要" + topicLen + "字节");
+            }
+            byte[] topicBytes = new byte[topicLen];
+            payload.readBytes(topicBytes);
+            topicFilters.add(new String(topicBytes, StandardCharsets.UTF_8));
+        }
+
+        msg.setTopicFilters(topicFilters);
+        log.info("UNSUBSCRIBE 解析成功: packetId={}, topics={}", msg.getPacketId(), topicFilters);
         return msg;
     }
 }

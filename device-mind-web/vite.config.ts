@@ -27,6 +27,10 @@ export default defineConfig({
       '/device-mind': {
         target: 'http://localhost:8080',
         changeOrigin: true,
+      },
+      '/api/v1': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
       }
     }
   }

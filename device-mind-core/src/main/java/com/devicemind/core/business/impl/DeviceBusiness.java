@@ -15,6 +15,7 @@ import com.devicemind.core.stdsvc.intf.IDmProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,12 @@ public class DeviceBusiness implements IDeviceBusiness {
     private final IDmDeviceService deviceService;
     private final IDmProductService productService;
     private final DmDeviceMapper deviceMapper;
+    private final com.devicemind.core.client.BrokerRegistryClient brokerRegistryClient;
+    private final com.devicemind.core.service.CommandRetryService commandRetryService;
+    private final com.devicemind.core.service.SmsService smsService;
+
+    @Value("${device.offline.alert-phone:}")
+    private String offlineAlertPhone;
 
     @Override
     public Page<DeviceVO> listPage(DevicePageQueryDTO query) {
@@ -79,6 +86,9 @@ public class DeviceBusiness implements IDeviceBusiness {
         BeanUtils.copyProperties(dto, entity);
         entity.setStatus("OFFLINE");
         deviceService.save(entity);
+
+        // 通知 Broker 注册设备
+        brokerRegistryClient.register(dto.getDeviceId());
     }
 
     @Override
@@ -95,10 +105,49 @@ public class DeviceBusiness implements IDeviceBusiness {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
-        if (deviceService.getById(id) == null) {
+        DmDevice device = deviceService.getById(id);
+        if (device == null) {
             throw new ServiceException(404, "设备不存在");
         }
         deviceService.removeById(id);
+
+        // 通知 Broker 注销设备
+        brokerRegistryClient.unregister(device.getDeviceId());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateStatusByDeviceId(String deviceId, String status) {
+        DmDevice device = deviceService.lambdaQuery()
+                .eq(DmDevice::getDeviceId, deviceId)
+                .one();
+        if (device == null) {
+            log.warn("设备不存在，无法更新状态: deviceId={}", deviceId);
+            return;
+        }
+        DmDevice update = new DmDevice();
+        update.setId(device.getId());
+        update.setStatus(status);
+        if ("ONLINE".equals(status)) {
+            update.setLastOnlineTime(new Date());
+        }
+        deviceService.updateById(update);
+        log.info("设备状态更新: deviceId={}, old={}→new={}", deviceId, device.getStatus(), status);
+
+        // 设备上线时投递待发送指令
+        if ("ONLINE".equals(status)) {
+            commandRetryService.deliverPendingCommands(deviceId);
+        }
+
+        // 设备无故掉线 → 短信通知
+        if ("OFFLINE".equals(status) && "ONLINE".equals(device.getStatus())) {
+            if (offlineAlertPhone != null && !offlineAlertPhone.isBlank()) {
+                smsService.send(List.of(offlineAlertPhone),
+                        "【DeviceMind】设备离线告警: " + deviceId
+                                + " (" + (device.getName() != null ? device.getName() : "") + ")"
+                                + " 于 " + new Date() + " 断开连接");
+            }
+        }
     }
 
     @Override

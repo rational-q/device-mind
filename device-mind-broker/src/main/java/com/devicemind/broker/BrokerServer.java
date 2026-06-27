@@ -6,10 +6,15 @@ import com.devicemind.broker.config.BrokerConfig;
 import com.devicemind.broker.handler.ConnectHandler;
 import com.devicemind.broker.handler.DisconnectHandler;
 import com.devicemind.broker.handler.ExceptionHandler;
+import com.devicemind.broker.handler.HeartbeatTimeoutHandler;
 import com.devicemind.broker.handler.PingReqHandler;
 import com.devicemind.broker.handler.PublishHandler;
+import com.devicemind.broker.handler.SubscribeHandler;
+import com.devicemind.broker.handler.UnsubscribeHandler;
+import com.devicemind.broker.service.DeviceAuthService;
 import com.devicemind.broker.service.MessageForwarder;
 import com.devicemind.broker.session.SessionManager;
+import com.devicemind.broker.session.SubscriptionManager;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -35,6 +40,8 @@ import java.util.concurrent.TimeUnit;
 public class BrokerServer {
 
     private final SessionManager sessionManager;
+    private final SubscriptionManager subscriptionManager;
+    private final DeviceAuthService deviceAuthService;
     private final BrokerConfig brokerConfig;
     private final MessageForwarder messageForwarder;
 
@@ -62,12 +69,15 @@ public class BrokerServer {
                         protected void initChannel(SocketChannel ch) {
                             ChannelPipeline pipeline = ch.pipeline();
                             pipeline.addLast(new IdleStateHandler(brokerConfig.getHeartbeatTimeout(), 0, 0, TimeUnit.SECONDS));
+                            pipeline.addLast(new HeartbeatTimeoutHandler(sessionManager, subscriptionManager));
                             pipeline.addLast(new MqttDecoder());
                             pipeline.addLast(new MqttEncoder());
-                            pipeline.addLast(new ConnectHandler(sessionManager));
+                            pipeline.addLast(new ConnectHandler(sessionManager, deviceAuthService));
+                            pipeline.addLast(new SubscribeHandler(subscriptionManager));
+                            pipeline.addLast(new UnsubscribeHandler(subscriptionManager));
                             pipeline.addLast(new PublishHandler(sessionManager, messageForwarder));
                             pipeline.addLast(new PingReqHandler(sessionManager));
-                            pipeline.addLast(new DisconnectHandler(sessionManager));
+                            pipeline.addLast(new DisconnectHandler(sessionManager, subscriptionManager, deviceAuthService));
                             pipeline.addLast(new ExceptionHandler());
                         }
                     });

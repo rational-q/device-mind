@@ -15,6 +15,9 @@ public class DeviceDataVO {
     @Schema(description = "属性名称", example = "temperature")
     private String attrName;
 
-    @Schema(description = "属性值")
+    @Schema(description = "属性值（数值）")
     private Double value;
+
+    @Schema(description = "属性值（字符串/枚举）")
+    private String valueText;
 }

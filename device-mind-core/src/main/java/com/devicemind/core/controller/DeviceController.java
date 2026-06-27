@@ -55,9 +55,16 @@ public class DeviceController {
     }
 
     @PutMapping("/status")
-    @Operation(summary = "更新设备状态")
+    @Operation(summary = "更新设备状态（按内部ID）")
     public Result<Void> updateStatus(@RequestParam Long id, @Valid @RequestBody DeviceStatusUpdateDTO dto) {
         deviceBusiness.updateStatus(id, dto);
+        return Result.ok();
+    }
+
+    @PutMapping("/online-status")
+    @Operation(summary = "更新设备在线状态（按deviceId，供Broker回调）")
+    public Result<Void> updateOnlineStatus(@RequestParam String deviceId, @RequestParam String status) {
+        deviceBusiness.updateStatusByDeviceId(deviceId, status);
         return Result.ok();
     }
 }

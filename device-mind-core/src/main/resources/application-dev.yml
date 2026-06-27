@@ -48,6 +48,19 @@ kafka:
 agent-service:
   url: http://localhost:8081
 
+broker-service:
+  url: http://localhost:1884
+
+device:
+  offline:
+    alert-phone: ${DEVICE_OFFLINE_ALERT_PHONE:}
+  heartbeat:
+    timeout-minutes: ${DEVICE_HEARTBEAT_TIMEOUT:30}
+
+alert:
+  critical:
+    alert-phone: ${ALERT_CRITICAL_PHONE:}
+
 logging:
   level:
     com.devicemind.core: DEBUG

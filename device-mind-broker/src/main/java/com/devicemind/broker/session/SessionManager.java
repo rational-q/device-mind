@@ -62,6 +62,13 @@ public class SessionManager {
     }
 
     /**
+     * 根据 Channel 获取 clientId
+     */
+    public String getClientId(Channel channel) {
+        return channelToClientId.get(channel.id().asShortText());
+    }
+
+    /**
      * 当前在线设备数
      */
     public int getOnlineCount() {

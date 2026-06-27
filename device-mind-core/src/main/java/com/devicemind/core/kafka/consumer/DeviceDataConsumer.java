@@ -3,12 +3,14 @@ package com.devicemind.core.kafka.consumer;
 import com.devicemind.common.dto.DeviceDataPoint;
 import com.devicemind.core.model.dto.DeviceDataRequest;
 import com.devicemind.core.service.DeviceService;
+import com.devicemind.core.service.SceneEngine;
 import com.devicemind.core.kafka.processor.DeviceDataProcessor;
 import com.devicemind.core.kafka.processor.DeviceDataProcessorFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -41,14 +43,17 @@ public class DeviceDataConsumer {
     private final ObjectMapper objectMapper;
     private final DeviceService deviceService;
     private final DeviceDataProcessorFactory processorFactory;
+    private final SceneEngine sceneEngine;
+    private final com.devicemind.core.service.DeviceDataWebSocketHandler webSocketHandler;
 
     /**
      * 消费设备数据消息
      *
      * @param message JSON 字符串
+     * @param ack     手动确认，处理成功后才提交 offset
      */
     @KafkaListener(topics = "${kafka.topics.device-data}", groupId = "${spring.kafka.consumer.group-id:core-group}")
-    public void onMessage(String message) {
+    public void onMessage(String message, Acknowledgment ack) {
         try {
             // 1. 解析消息
             DeviceDataRequest request = objectMapper.readValue(message, DeviceDataRequest.class);
@@ -59,6 +64,7 @@ public class DeviceDataConsumer {
             String productKey = deviceService.getProductKeyByDeviceId(deviceId);
             if (productKey == null) {
                 log.warn("无法获取 productKey，丢弃消息: deviceId={}", deviceId);
+                ack.acknowledge();
                 return;
             }
 
@@ -66,6 +72,7 @@ public class DeviceDataConsumer {
             DeviceDataProcessor processor = processorFactory.getProcessor(productKey);
             if (processor == null) {
                 log.warn("未找到处理器，丢弃消息: deviceId={}, productKey={}", deviceId, productKey);
+                ack.acknowledge();
                 return;
             }
 
@@ -76,12 +83,26 @@ public class DeviceDataConsumer {
                 dataPoints.add(new DeviceDataPoint(deviceId, entry.getKey(), entry.getValue(), ts));
             }
 
-            // 5. 处理器执行
+            // 5. 处理器执行（数据入库 + 告警评估）
             processor.process(dataPoints);
+
+            // 5b. WebSocket 广播实时数据
+            for (DeviceDataPoint dp : dataPoints) {
+                webSocketHandler.broadcastDeviceData(dp.getDeviceId(), dp.getAttrName(),
+                        dp.getValue(), dp.getTimestamp());
+            }
+
+            // 5c. 场景联动评估
+            sceneEngine.evaluate(dataPoints, productKey);
+
             log.info("消息处理完成: deviceId={}, productKey={}, processor={}",
                     deviceId, productKey, processor.getClass().getSimpleName());
+
+            // 6. 处理成功 → 提交 offset
+            ack.acknowledge();
         } catch (Exception e) {
             log.error("处理 Kafka 消息失败: {}", message, e);
+            // 不调用 ack.acknowledge()，消息将在一段时间后重新投递
         }
     }
 }

@@ -17,4 +17,6 @@ public interface IDeviceBusiness {
     void delete(Long id);
 
     void updateStatus(Long id, DeviceStatusUpdateDTO dto);
+
+    void updateStatusByDeviceId(String deviceId, String status);
 }
