@@ -1,4 +1,10 @@
 spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      timeout: 3000
   datasource:
     url: jdbc:postgresql://localhost:5432/devicemind_ts
     username: mac

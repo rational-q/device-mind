@@ -14,4 +14,7 @@ public class ChatRequest {
 
     @Schema(description = "设备ID（可选，缩小上下文范围）", example = "temp-001")
     private String deviceId;
+
+    @Schema(description = "会话ID（不传则自动创建新会话，传了则继续之前的对话）")
+    private String sessionId;
 }

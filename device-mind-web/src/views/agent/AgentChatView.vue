@@ -11,7 +11,7 @@
         <el-option value="当前在线的设备有哪些" label="✅ 当前在线的设备有哪些" />
         <el-option value="指令下发成功率是多少" label="📊 指令下发成功率是多少" />
       </el-select>
-      <el-button style="width:100%" @click="store.clear()">清空对话</el-button>
+      <el-button style="width:100%" @click="clearChat">清空对话</el-button>
     </div>
 
     <div class="agent-main">
@@ -77,6 +77,8 @@ const inputText = ref('')
 const sending = ref(false)
 const messagesRef = ref<HTMLElement>()
 const quickExample = ref('')
+const SESSION_KEY = 'dm_chat_session'
+const sessionId = ref<string | null>(localStorage.getItem(SESSION_KEY) || null)  // 持久化，刷新不丢
 
 // 告警分析
 const alertDialogVisible = ref(false)
@@ -86,6 +88,8 @@ const alertForm = reactive({ deviceId: '', level: '', metric: '', currentValue: 
 const confirmVisible = ref(false)
 const cmdSending = ref(false)
 const pendingCmd = reactive({ deviceId: '', command: '', params: null as any, message: '' })
+
+function clearChat() { store.clear(); localStorage.removeItem(SESSION_KEY); sessionId.value = null }
 
 function openAlertDialog() {
   alertForm.deviceId = ''; alertForm.level = ''; alertForm.metric = ''; alertForm.currentValue = 0; alertForm.threshold = 0
@@ -140,7 +144,8 @@ async function doQuery(text: string) {
   sending.value = true; scrollToBottom()
 
   try {
-    const res = await chat({ question: text })
+    const res = await chat({ question: text, sessionId: sessionId.value ?? undefined })
+    if (res.sessionId) { sessionId.value = res.sessionId; localStorage.setItem(SESSION_KEY, res.sessionId) }
     store.updateLastMessage({ role: 'assistant', content: res.answer || '查询完成', type: 'query', raw: res })
     // 检测待确认操作 → 弹窗
     if (res.pendingAction?.status === 'pending_confirmation') {

@@ -12,6 +12,9 @@ import java.util.Map;
 @Schema(description = "通用问答响应")
 public class ChatResponse {
 
+    @Schema(description = "会话ID（前端需保存，后续请求带上以保持上下文）")
+    private String sessionId;
+
     @Schema(description = "是否成功")
     private boolean success;
 

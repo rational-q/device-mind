@@ -1,4 +1,10 @@
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3000
   datasource:
     url: ${TSDB_URL}
     username: ${TSDB_USERNAME}

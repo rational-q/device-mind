@@ -25,6 +25,8 @@ export interface AlertAnalysisResponse {
 export interface ChatRequest {
   question: string
   deviceId?: string
+  /** 会话ID（后端维护上下文，不传则新会话） */
+  sessionId?: string
 }
 
 export interface ChatResponse {

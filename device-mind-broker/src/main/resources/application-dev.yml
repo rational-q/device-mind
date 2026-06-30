@@ -45,7 +45,7 @@ core-service:
 
 broker:
   auth:
-    enabled: true
+    enabled: false
     username: mqtt
     password: mqtt
 
