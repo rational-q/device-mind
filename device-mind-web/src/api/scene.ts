@@ -6,7 +6,7 @@ export function getSceneList(pageNum: number, pageSize: number) {
   return request.post<any, PageResult<SceneVO>>('/device-mind/core/scenes/list', { pageNum, pageSize })
 }
 
-export function getSceneById(id: number) {
+export function getSceneById(id: string) {
   return request.get<any, SceneVO>('/device-mind/core/scenes/detail', { params: { id } })
 }
 
@@ -18,11 +18,11 @@ export function updateScene(id: number, data: SceneUpdateDTO) {
   return request.put('/device-mind/core/scenes', data, { params: { id } })
 }
 
-export function deleteScene(id: number) {
+export function deleteScene(id: string) {
   return request.delete('/device-mind/core/scenes', { params: { id } })
 }
 
-export function toggleScene(id: number) {
+export function toggleScene(id: string) {
   return request.put('/device-mind/core/scenes/toggle', null, { params: { id } })
 }
 

@@ -20,7 +20,9 @@
       <el-table-column label="操作" width="200">
         <template #default="{ row }">
           <el-button size="small" @click="openDialog(row)">编辑</el-button>
-          <el-popconfirm title="确认删除？" @confirm="handleDelete(row.id)"><el-button size="small" type="danger">删除</el-button></el-popconfirm>
+          <el-popconfirm title="确认删除？" @confirm="handleDelete(row.id)">
+            <template #reference><el-button size="small" type="danger">删除</el-button></template>
+          </el-popconfirm>
         </template>
       </el-table-column>
     </el-table>
@@ -57,7 +59,7 @@ const form = reactive<any>({ id: null, ruleName: '', deviceType: '', attrName: '
 async function fetchData() { loading.value = true; try { const res = await getAlertRuleList(query); tableData.value = res.records; total.value = res.total } finally { loading.value = false } }
 function openDialog(row?: AlertRuleVO) { if (row) Object.assign(form, row); else Object.assign(form, { id: null, ruleName: '', deviceType: '', attrName: '', operator: '>', threshold: 0, durationSeconds: 60, level: 'WARN', enabled: true }); dialogVisible.value = true }
 async function handleSave() { if (form.id) await updateAlertRule(form.id, form); else await createAlertRule(form); dialogVisible.value = false; fetchData() }
-async function handleDelete(id: number) { await deleteAlertRule(id); fetchData() }
+async function handleDelete(id: string) { await deleteAlertRule(id); fetchData() }
 async function toggleRule(id: number) { await toggleAlertRule(id); fetchData() }
 
 onMounted(fetchData)

@@ -26,7 +26,9 @@
         <template #default="{ row }">
           <el-button size="small" @click="openDialog(row)">编辑</el-button>
           <el-button size="small" @click="$router.push(`/things?productId=${row.id}`)">物模型</el-button>
-          <el-popconfirm title="确认删除？" @confirm="handleDelete(row.id)"><el-button size="small" type="danger">删除</el-button></el-popconfirm>
+          <el-popconfirm title="确认删除？" @confirm="handleDelete(row.id)">
+            <template #reference><el-button size="small" type="danger">删除</el-button></template>
+          </el-popconfirm>
         </template>
       </el-table-column>
     </el-table>
@@ -81,7 +83,7 @@ async function handleSave() {
   else await createProduct({ productKey: form.productKey, name: form.name, description: form.description, protocolType: form.protocolType, dataFormat: form.dataFormat })
   dialogVisible.value = false; fetchData()
 }
-async function handleDelete(id: number) { await deleteProduct(id); fetchData() }
+async function handleDelete(id: string) { await deleteProduct(id); fetchData() }
 
 onMounted(fetchData)
 </script>

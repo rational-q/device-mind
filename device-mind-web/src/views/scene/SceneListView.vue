@@ -135,7 +135,7 @@ async function handleSave() {
 }
 
 async function handleToggle(id: number) { await toggleScene(id); fetchData() }
-async function handleDelete(id: number) { await deleteScene(id); fetchData() }
+async function handleDelete(id: string) { await deleteScene(id); fetchData() }
 
 // 日志弹窗
 const logVisible = ref(false)
