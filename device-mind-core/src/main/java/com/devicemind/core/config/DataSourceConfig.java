@@ -106,7 +106,7 @@ public class DataSourceConfig {
 
     @Configuration
     @MapperScan(
-            basePackages = "com.devicemind.core.persistence.mapper.mysql",
+            basePackages = {"com.devicemind.core.persistence.dao.mysql", "com.devicemind.core.persistence.mapper.mysql"},
             sqlSessionFactoryRef = "mysqlSqlSessionFactory",
             sqlSessionTemplateRef = "mysqlSqlSessionTemplate"
     )
@@ -122,7 +122,7 @@ public class DataSourceConfig {
             factory.setGlobalConfig(buildGlobalConfig());
             factory.setPlugins(paginationInterceptor(DbType.MYSQL));
             factory.setMapperLocations(
-                    new PathMatchingResourcePatternResolver().getResources("classpath*:mapper/mysql/**/*.xml"));
+                    new PathMatchingResourcePatternResolver().getResources("classpath*:com/devicemind/core/persistence/dao/mysql/*.xml"));
             return factory.getObject();
         }
 
@@ -145,7 +145,7 @@ public class DataSourceConfig {
 
     @Configuration
     @MapperScan(
-            basePackages = "com.devicemind.core.persistence.mapper.timescale",
+            basePackages = {"com.devicemind.core.persistence.dao.timescale", "com.devicemind.core.persistence.mapper.timescale"},
             sqlSessionFactoryRef = "timescaleSqlSessionFactory",
             sqlSessionTemplateRef = "timescaleSqlSessionTemplate"
     )
@@ -160,7 +160,7 @@ public class DataSourceConfig {
             factory.setGlobalConfig(buildGlobalConfig());
             factory.setPlugins(paginationInterceptor(DbType.POSTGRE_SQL));
             factory.setMapperLocations(
-                    new PathMatchingResourcePatternResolver().getResources("classpath*:mapper/timescale/**/*.xml"));
+                    new PathMatchingResourcePatternResolver().getResources("classpath*:com/devicemind/core/persistence/dao/timescale/*.xml"));
             return factory.getObject();
         }
 

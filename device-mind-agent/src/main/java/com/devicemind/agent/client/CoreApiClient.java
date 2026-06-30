@@ -1,9 +1,9 @@
 package com.devicemind.agent.client;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.devicemind.agent.config.CoreServiceConfig;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
+import com.devicemind.common.utils.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -19,13 +19,12 @@ import java.util.Map;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class CoreApiClient {
 
-    private final RestTemplate restTemplate;
-    private final CoreServiceConfig config;
-    private final ObjectMapper objectMapper;
-
+    @Autowired
+    private RestTemplate restTemplate;
+    @Autowired
+    private CoreServiceConfig config;
     // ==================== 设备信息 ====================
 
     /**
@@ -38,10 +37,10 @@ public class CoreApiClient {
             body.put("deviceId", deviceId);
             body.put("pageNum", 1);
             body.put("pageSize", 1);
-            JsonNode result = doPost(config.getUrl() + "/device-mind/devices/list", body);
+            JsonNode result = doPost(config.getUrl() + "/device-mind/core/devices/list", body);
             JsonNode records = result.get("records");
             if (records != null && records.isArray() && records.size() > 0) {
-                return objectMapper.writeValueAsString(records.get(0));
+                return JsonUtil.toJson(records.get(0));
             }
             return "{\"error\":\"未找到设备: " + deviceId + "\"}";
         } catch (Exception e) {
@@ -69,10 +68,10 @@ public class CoreApiClient {
             body.put("pageNum", 1);
             body.put("pageSize", 200);
 
-            JsonNode result = doPost(config.getUrl() + "/device-mind/device-data/list", body);
+            JsonNode result = doPost(config.getUrl() + "/device-mind/core/device-data/list", body);
             JsonNode records = result.get("records");
             if (records != null && records.isArray()) {
-                return objectMapper.writeValueAsString(records);
+                return JsonUtil.toJson(records);
             }
             return "[]";
         } catch (Exception e) {
@@ -88,9 +87,9 @@ public class CoreApiClient {
      */
     public String getDeviceShadow(String deviceId) {
         try {
-            String url = config.getUrl() + "/device-mind/shadows?deviceId=" + deviceId;
+            String url = config.getUrl() + "/device-mind/core/shadows?deviceId=" + deviceId;
             JsonNode result = doGet(url);
-            return objectMapper.writeValueAsString(result);
+            return JsonUtil.toJson(result);
         } catch (Exception e) {
             log.warn("查询设备影子失败: deviceId={}", deviceId, e);
             return "{\"error\":\"查询设备影子失败: " + e.getMessage() + "\"}";
@@ -115,10 +114,10 @@ public class CoreApiClient {
             body.put("pageNum", 1);
             body.put("pageSize", 20);
 
-            JsonNode result = doPost(config.getUrl() + "/device-mind/alerts/list", body);
+            JsonNode result = doPost(config.getUrl() + "/device-mind/core/alerts/list", body);
             JsonNode records = result.get("records");
             if (records != null && records.isArray()) {
-                return objectMapper.writeValueAsString(records);
+                return JsonUtil.toJson(records);
             }
             return "[]";
         } catch (Exception e) {
@@ -141,15 +140,121 @@ public class CoreApiClient {
             body.put("pageNum", 1);
             body.put("pageSize", 50);
 
-            JsonNode result = doPost(config.getUrl() + "/device-mind/alert-rules/list", body);
+            JsonNode result = doPost(config.getUrl() + "/device-mind/core/alert-rules/list", body);
             JsonNode records = result.get("records");
             if (records != null && records.isArray()) {
-                return objectMapper.writeValueAsString(records);
+                return JsonUtil.toJson(records);
             }
             return "[]";
         } catch (Exception e) {
             log.warn("查询告警规则失败", e);
             return "{\"error\":\"查询告警规则失败: " + e.getMessage() + "\"}";
+        }
+    }
+
+    // ==================== 设备在线统计 ====================
+
+    /**
+     * 查询设备在线状态统计—全部设备或按 productKey 过滤
+     */
+    public String getDeviceStatusSummary(String deviceId, String productKey) {
+        try {
+            Map<String, Object> body = new HashMap<>();
+            if (deviceId != null && !deviceId.isBlank()) body.put("deviceId", deviceId);
+            if (productKey != null && !productKey.isBlank()) body.put("productKey", productKey);
+            body.put("pageNum", 1);
+            body.put("pageSize", 500);
+            JsonNode result = doPost(config.getUrl() + "/device-mind/core/devices/list", body);
+            JsonNode records = result.get("records");
+            if (records == null || !records.isArray()) return "{\"total\":0,\"online\":0,\"offline\":0}";
+
+            int total = records.size();
+            int online = 0;
+            for (JsonNode r : records) {
+                String status = r.has("status") ? r.get("status").asText() : "";
+                if ("ONLINE".equalsIgnoreCase(status)) online++;
+            }
+            return String.format("{\"total\":%d,\"online\":%d,\"offline\":%d}", total, online, total - online);
+        } catch (Exception e) {
+            log.warn("查询设备状态统计失败", e);
+            return "{\"error\":\"查询失败: " + e.getMessage() + "\"}";
+        }
+    }
+
+    // ==================== 告警概览 ====================
+
+    /**
+     * 查询近 N 小时告警概览（按等级统计）
+     */
+    public String getAlertSummary(Integer hours) {
+        try {
+            long now = System.currentTimeMillis();
+            int h = hours != null && hours > 0 ? hours : 1;
+            long start = now - h * 3600L * 1000L;
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("startTime", start);
+            body.put("endTime", now);
+            body.put("pageNum", 1);
+            body.put("pageSize", 100);
+            JsonNode result = doPost(config.getUrl() + "/device-mind/core/alerts/list", body);
+            JsonNode records = result.get("records");
+            if (records == null || !records.isArray()) return "{\"total\":0,\"byLevel\":{}}";
+
+            int critical = 0, warn = 0, info = 0;
+            for (JsonNode r : records) {
+                String level = r.has("level") ? r.get("level").asText().toUpperCase() : "";
+                switch (level) {
+                    case "CRITICAL" -> critical++;
+                    case "WARN", "WARNING" -> warn++;
+                    default -> info++;
+                }
+            }
+            return String.format("{\"total\":%d,\"critical\":%d,\"warn\":%d,\"info\":%d,\"hours\":%d}",
+                    critical + warn + info, critical, warn, info, h);
+        } catch (Exception e) {
+            log.warn("查询告警概览失败", e);
+            return "{\"error\":\"查询失败: " + e.getMessage() + "\"}";
+        }
+    }
+
+    // ==================== 指令执行统计 ====================
+
+    /**
+     * 查询指令执行统计—成功率
+     */
+    public String getCommandStats(String deviceId, Integer hours) {
+        try {
+            long now = System.currentTimeMillis();
+            int h = hours != null && hours > 0 ? hours : 24;
+            long start = now - h * 3600L * 1000L;
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("deviceId", deviceId);
+            body.put("startTime", start);
+            body.put("endTime", now);
+            body.put("pageNum", 1);
+            body.put("pageSize", 200);
+            JsonNode result = doPost(config.getUrl() + "/device-mind/core/command-logs/list", body);
+            JsonNode records = result.get("records");
+            if (records == null || !records.isArray()) return "{\"total\":0,\"success\":0,\"failed\":0,\"pending\":0}";
+
+            int total = records.size(), success = 0, failed = 0, pending = 0;
+            for (JsonNode r : records) {
+                String status = r.has("status") ? r.get("status").asText().toUpperCase() : "";
+                switch (status) {
+                    case "SUCCESS" -> success++;
+                    case "EXPIRED", "FAILED" -> failed++;
+                    default -> pending++;
+                }
+            }
+            double rate = total > 0 ? Math.round(success * 10000.0 / total) / 100.0 : 0;
+            return String.format(
+                    "{\"total\":%d,\"success\":%d,\"failed\":%d,\"pending\":%d,\"successRate\":%.1f,\"hours\":%d}",
+                    total, success, failed, pending, rate, h);
+        } catch (Exception e) {
+            log.warn("查询指令统计失败", e);
+            return "{\"error\":\"查询失败: " + e.getMessage() + "\"}";
         }
     }
 

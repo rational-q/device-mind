@@ -1,7 +1,7 @@
 package com.devicemind.core.stdsvc.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.devicemind.common.dto.DeviceDataPoint;
+import com.devicemind.common.kafka.model.DeviceDataPoint;
 import com.devicemind.common.exception.ServiceException;
 import com.devicemind.core.model.entity.DmDeviceData;
 import com.devicemind.core.persistence.mapper.timescale.DmDeviceDataMapper;

@@ -1,5 +1,6 @@
 package com.devicemind.core.controller;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.devicemind.common.utils.Result;
 import com.devicemind.core.business.intf.ICommandLogBusiness;
@@ -8,18 +9,17 @@ import com.devicemind.core.model.vo.CommandLogVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequiredArgsConstructor
-@RequestMapping("/device-mind/command-logs")
+@RequestMapping("/command-logs")
 @Tag(name = "指令日志", description = "指令下发记录查询")
 public class CommandLogController {
 
-    private final ICommandLogBusiness commandLogBusiness;
+    @Autowired
+    private ICommandLogBusiness commandLogBusiness;
 
     @PostMapping("/list")
     @Operation(summary = "分页查询指令日志")

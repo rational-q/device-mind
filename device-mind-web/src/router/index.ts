@@ -17,6 +17,7 @@ const router = createRouter({
         { path: '/monitor', name: 'Monitor', component: () => import('@/views/monitor/DashboardRealtimeView.vue'), meta: { title: '实时大屏', icon: 'TrendCharts' } },
         { path: '/alerts', name: 'Alerts', component: () => import('@/views/alert/AlertListView.vue'), meta: { title: '告警列表', icon: 'Bell' } },
         { path: '/alert-rules', name: 'AlertRules', component: () => import('@/views/alert/AlertRuleView.vue'), meta: { title: '告警规则', icon: 'Setting' } },
+        { path: '/command-send', name: 'CommandSend', component: () => import('@/views/command/CommandSendView.vue'), meta: { title: '指令下发', icon: 'Promotion' } },
         { path: '/command-logs', name: 'CommandLogs', component: () => import('@/views/command/CommandLogView.vue'), meta: { title: '指令日志', icon: 'Document' } },
         { path: '/scenes', name: 'Scenes', component: () => import('@/views/scene/SceneListView.vue'), meta: { title: '场景联动', icon: 'Switch' } },
         { path: '/agent', name: 'Agent', component: () => import('@/views/agent/AgentChatView.vue'), meta: { title: 'AI 助手', icon: 'ChatDotSquare' } },

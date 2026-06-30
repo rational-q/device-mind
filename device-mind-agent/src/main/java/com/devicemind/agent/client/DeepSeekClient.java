@@ -1,11 +1,11 @@
 package com.devicemind.agent.client;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.devicemind.agent.config.DeepSeekConfig;
 import com.devicemind.agent.function.ToolDefinition;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -24,11 +24,12 @@ import java.util.List;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class DeepSeekClient {
 
-    private final RestTemplate restTemplate;
-    private final DeepSeekConfig config;
+    @Autowired
+    private RestTemplate restTemplate;
+    @Autowired
+    private DeepSeekConfig config;
 
     /**
      * 调用 DeepSeek 对话 API（非流式）

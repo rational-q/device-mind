@@ -1,6 +1,6 @@
 package com.devicemind.core.config;
 
-import com.devicemind.core.service.DeviceDataWebSocketHandler;
+import com.devicemind.core.support.DeviceDataWebSocketHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;

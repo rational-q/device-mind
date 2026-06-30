@@ -27,4 +27,7 @@ public class ConnectMessage extends MqttMessage {
 
     /** 密码（可选） */
     private String password;
+
+    /** Clean Session 标志（MQTT 3.1.1），false 表示需要恢复会话 */
+    private boolean cleanSession = true;
 }

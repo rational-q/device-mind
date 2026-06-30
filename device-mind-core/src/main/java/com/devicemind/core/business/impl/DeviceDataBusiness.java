@@ -1,15 +1,14 @@
 package com.devicemind.core.business.impl;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.devicemind.common.dto.DeviceDataPoint;
-import com.devicemind.common.exception.ServiceException;
+import com.devicemind.common.kafka.model.DeviceDataPoint;
 import com.devicemind.core.business.intf.IDeviceDataBusiness;
 import com.devicemind.core.model.dto.DeviceDataQueryDTO;
 import com.devicemind.core.model.dto.DeviceDataRequest;
 import com.devicemind.core.model.vo.DeviceDataVO;
-import com.devicemind.core.persistence.mapper.timescale.DmDeviceDataMapper;
-import com.devicemind.core.stdsvc.impl.DmDeviceDataService;
-import lombok.RequiredArgsConstructor;
+import com.devicemind.core.persistence.dao.timescale.DeviceDataDao;
+import com.devicemind.core.stdsvc.intf.IDmDeviceDataService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -21,15 +20,16 @@ import java.util.Map;
 /**
  * 设备数据业务实现
  * <p>
- * 负责将上报请求解析为数据点列表，委托 DmDeviceDataService 写入
+ * 负责将上报请求解析为数据点列表，委托 IDmDeviceDataService 写入
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class DeviceDataBusiness implements IDeviceDataBusiness {
 
-    private final DmDeviceDataService deviceDataService;
-    private final DmDeviceDataMapper deviceDataMapper;
+    @Autowired
+    private IDmDeviceDataService deviceDataService;
+    @Autowired
+    private DeviceDataDao deviceDataDao;
 
     @Override
     public void processDeviceData(DeviceDataRequest request) {
@@ -49,7 +49,7 @@ public class DeviceDataBusiness implements IDeviceDataBusiness {
     @Override
     public Page<DeviceDataVO> queryData(DeviceDataQueryDTO query) {
         Page<DeviceDataVO> page = Page.of(query.getPageNum(), query.getPageSize());
-        return (Page<DeviceDataVO>) deviceDataMapper.selectDataPage(
+        return (Page<DeviceDataVO>) deviceDataDao.selectDataPage(
                 page, query.getDeviceId(), query.getAttrName(), query.getStart(), query.getEnd());
     }
 }

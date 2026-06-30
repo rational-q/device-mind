@@ -8,6 +8,48 @@ logging:
 spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+  kafka:
+    consumer:
+      group-id: broker-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+      max-poll-records: 20
+      max-poll-interval-ms: 300000
+      session-timeout-ms: 45000
+      heartbeat-interval-ms: 10000
+      fetch-min-size: 1
+      fetch-max-wait-ms: 500
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 10
+      delivery-timeout-ms: 30000
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        min.insync.replicas: 2
+        request.timeout.ms: 10000
+        retry.backoff.ms: 500
+        linger.ms: 10
+        batch.size: 16384
+        compression.type: snappy
+    listener:
+      ack-mode: manual
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3000
+
+redisson:
+  connection-pool-size: 32
+  connection-minimum-idle-size: 8
+  retry-attempts: 3
+  retry-interval: 1000
+  dns-monitoring-interval: 5000
 
 broker:
   mqtt-port: 1883

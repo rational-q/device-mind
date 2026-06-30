@@ -1,5 +1,7 @@
 server:
   port: 8080
+  servlet:
+    context-path: /device-mind/core
 
 logging:
   file:
@@ -13,11 +15,28 @@ spring:
       group-id: core-group
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      max-poll-records: 50          # 每批拉取50条，控制内存
+      max-poll-records: 20          # 每批拉取20条，控制单批处理耗时
+      max-poll-interval-ms: 600000  # 10min，防止处理慢被踢出消费组
+      session-timeout-ms: 45000     # 45s 无心跳触发 rebalance
+      heartbeat-interval-ms: 10000  # 10s 心跳间隔
+      fetch-min-size: 1
+      fetch-max-wait-ms: 500
       enable-auto-commit: false     # 手动提交，保证消息不丢
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all                     # 等待所有 ISR 副本确认
+      retries: 10                   # 重试次数
+      delivery-timeout-ms: 30000    # 30s 发送超时（含重试）
+      properties:
+        enable.idempotence: true    # 幂等生产者，防止网络重试导致重复
+        max.in.flight.requests.per.connection: 5  # 幂等开启后安全
+        min.insync.replicas: 2      # 至少 2 个 ISR 副本才接受写入
+        request.timeout.ms: 10000   # 单次请求超时
+        retry.backoff.ms: 500       # 重试间隔
+        linger.ms: 10               # 等 10ms 凑批
+        batch.size: 16384           # 16KB 批次
+        compression.type: snappy    # 压缩
     listener:
       ack-mode: manual              # 手动确认模式
       concurrency: 3                # 并行线程数 = 分区数
@@ -30,3 +49,26 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+
+redisson:
+  connection-pool-size: 32
+  connection-minimum-idle-size: 8
+  retry-attempts: 3
+  retry-interval: 1000
+  dns-monitoring-interval: 5000
+
+consumer:
+  executor:
+    core-pool-size: 8
+    max-pool-size: 16
+    queue-capacity: 200
+    keep-alive-seconds: 60
+    process-timeout-seconds: 30
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    try-it-out-enabled: true
+    operations-sorter: method

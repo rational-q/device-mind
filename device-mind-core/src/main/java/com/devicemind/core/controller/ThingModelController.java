@@ -1,5 +1,6 @@
 package com.devicemind.core.controller;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.devicemind.common.utils.Result;
 import com.devicemind.core.business.intf.IThingModelBusiness;
 import com.devicemind.core.model.dto.*;
@@ -7,7 +8,6 @@ import com.devicemind.core.model.vo.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,12 +15,12 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequiredArgsConstructor
-@RequestMapping("/device-mind/things")
+@RequestMapping("/things")
 @Tag(name = "物模型管理", description = "产品下的属性/服务/事件定义")
 public class ThingModelController {
 
-    private final IThingModelBusiness thingModelBusiness;
+    @Autowired
+    private IThingModelBusiness thingModelBusiness;
 
     @GetMapping("/attributes")
     @Operation(summary = "查询属性列表")

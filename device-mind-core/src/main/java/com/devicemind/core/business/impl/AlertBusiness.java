@@ -1,14 +1,14 @@
 package com.devicemind.core.business.impl;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.devicemind.common.exception.ServiceException;
 import com.devicemind.core.business.intf.IAlertBusiness;
 import com.devicemind.core.model.dto.AlertPageQueryDTO;
 import com.devicemind.core.model.entity.DmAlert;
 import com.devicemind.core.model.vo.AlertVO;
-import com.devicemind.core.persistence.mapper.mysql.DmAlertMapper;
+import com.devicemind.core.persistence.dao.mysql.AlertDao;
 import com.devicemind.core.stdsvc.intf.IDmAlertService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,16 +17,17 @@ import java.util.Date;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AlertBusiness implements IAlertBusiness {
 
-    private final IDmAlertService alertService;
-    private final DmAlertMapper alertMapper;
+    @Autowired
+    private IDmAlertService alertService;
+    @Autowired
+    private AlertDao alertDao;
 
     @Override
     public Page<AlertVO> listPage(AlertPageQueryDTO query) {
         Page<AlertVO> page = Page.of(query.getPageNum(), query.getPageSize());
-        return (Page<AlertVO>) alertMapper.selectAlertPage(
+        return (Page<AlertVO>) alertDao.selectAlertPage(
                 page, query.getDeviceId(), query.getStatus(), query.getLevel(),
                 query.getStartTime(), query.getEndTime());
     }

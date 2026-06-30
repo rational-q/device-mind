@@ -1,108 +1,132 @@
 package com.devicemind.core.kafka.consumer;
 
-import com.devicemind.common.dto.DeviceDataPoint;
+import com.devicemind.common.exception.KafkaConsumeFailedException;
+import com.devicemind.common.kafka.model.DeviceDataPoint;
 import com.devicemind.core.model.dto.DeviceDataRequest;
-import com.devicemind.core.service.DeviceService;
-import com.devicemind.core.service.SceneEngine;
-import com.devicemind.core.kafka.processor.DeviceDataProcessor;
-import com.devicemind.core.kafka.processor.DeviceDataProcessorFactory;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
+import com.devicemind.core.support.DeviceSupport;
+import com.devicemind.core.processor.DeviceDataProcessor;
+import com.devicemind.common.utils.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
- * 设备数据 Kafka 消费者
+ * 设备数据 Kafka 消费者（批量模式）
  * <p>
- * 从 topic "device-data" 消费设备上报数据，经过设备/产品信息补全后，
- * 路由到对应的数据处理器进行格式转换和入库。
+ * 每次 poll 拉取最多 {@code max-poll-records} 条消息，在同一批次内：
+ * <ol>
+ *   <li>解析所有消息，按 deviceId 分组</li>
+ *   <li>每组内按数据时间戳排序 → 保证单设备数据有序入库</li>
+ *   <li>按 productKey 路由到对应 Processor 批量写入 TSDB</li>
+ *   <li>全部成功后统一 ack，任一条失败则整批重试</li>
+ * </ol>
  * <p>
- * 消息格式（与 {@link DeviceDataRequest} 一致）：
- * <pre>
- * {
- *   "deviceId": "A-102",
- *   "timestamp": 1718200000,
- *   "attrs": {
- *     "temperature": 30.5,
- *     "humidity": 65.0
- *   }
- * }
- * </pre>
+ * <b>性能</b>：单次 TSDB bulk insert 比逐条 insert 快 10-50 倍，
+ * 即使设备 1 秒 1 条上报，每批 20 条的写入开销跟逐条差不多。
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class DeviceDataConsumer {
+    @Autowired
+    private DeviceSupport deviceService;
+    private final Map<String, DeviceDataProcessor> processorMap = new ConcurrentHashMap<>();
 
-    private final ObjectMapper objectMapper;
-    private final DeviceService deviceService;
-    private final DeviceDataProcessorFactory processorFactory;
-    private final SceneEngine sceneEngine;
-    private final com.devicemind.core.service.DeviceDataWebSocketHandler webSocketHandler;
+    @Autowired
+    private com.devicemind.core.support.DeviceDataWebSocketHandler webSocketHandler;
+
+    @Autowired
+    public void setProcessors(List<DeviceDataProcessor> processors) {
+        processorMap.putAll(processors.stream()
+                .collect(Collectors.toMap(DeviceDataProcessor::supportedProductKey, p -> p)));
+    }
 
     /**
-     * 消费设备数据消息
-     *
-     * @param message JSON 字符串
-     * @param ack     手动确认，处理成功后才提交 offset
+     * 批量消费（batch=true），一次 poll 的所有消息合并处理、统一 ack。
      */
-    @KafkaListener(topics = "${kafka.topics.device-data}", groupId = "${spring.kafka.consumer.group-id:core-group}")
-    public void onMessage(String message, Acknowledgment ack) {
-        try {
-            // 1. 解析消息
-            DeviceDataRequest request = objectMapper.readValue(message, DeviceDataRequest.class);
-            String deviceId = request.getDeviceId();
-            log.info("收到 Kafka 消息: deviceId={}, attrs={}", deviceId, request.getAttrs().keySet());
-
-            // 2. 查询 productKey
-            String productKey = deviceService.getProductKeyByDeviceId(deviceId);
-            if (productKey == null) {
-                log.warn("无法获取 productKey，丢弃消息: deviceId={}", deviceId);
-                ack.acknowledge();
-                return;
-            }
-
-            // 3. 获取对应的处理器
-            DeviceDataProcessor processor = processorFactory.getProcessor(productKey);
-            if (processor == null) {
-                log.warn("未找到处理器，丢弃消息: deviceId={}, productKey={}", deviceId, productKey);
-                ack.acknowledge();
-                return;
-            }
-
-            // 4. DeviceDataRequest → List<DeviceDataPoint>
-            long ts = request.getTimestamp() != null ? request.getTimestamp() : System.currentTimeMillis() / 1000;
-            List<DeviceDataPoint> dataPoints = new ArrayList<>();
-            for (Map.Entry<String, Object> entry : request.getAttrs().entrySet()) {
-                dataPoints.add(new DeviceDataPoint(deviceId, entry.getKey(), entry.getValue(), ts));
-            }
-
-            // 5. 处理器执行（数据入库 + 告警评估）
-            processor.process(dataPoints);
-
-            // 5b. WebSocket 广播实时数据
-            for (DeviceDataPoint dp : dataPoints) {
-                webSocketHandler.broadcastDeviceData(dp.getDeviceId(), dp.getAttrName(),
-                        dp.getValue(), dp.getTimestamp());
-            }
-
-            // 5c. 场景联动评估
-            sceneEngine.evaluate(dataPoints, productKey);
-
-            log.info("消息处理完成: deviceId={}, productKey={}, processor={}",
-                    deviceId, productKey, processor.getClass().getSimpleName());
-
-            // 6. 处理成功 → 提交 offset
+    @KafkaListener(topics = "${kafka.topics.device-data}",
+            groupId = "${spring.kafka.consumer.group-id:core-group}",
+            batch = "true")
+    public void onMessage(List<String> messages, Acknowledgment ack) {
+        if (messages.isEmpty()) {
             ack.acknowledge();
+            return;
+        }
+
+        log.info("批量消费: {} 条消息", messages.size());
+
+        // 1. 解析 + 按 deviceId 分组
+        Map<String, List<DeviceDataPoint>> devicePoints = new HashMap<>();
+
+        for (String message : messages) {
+            try {
+                DeviceDataRequest request = JsonUtil.fromJson(message, DeviceDataRequest.class);
+                String deviceId = request.getDeviceId();
+                long ts = request.getTimestamp() != null ? request.getTimestamp() : System.currentTimeMillis() / 1000;
+
+                List<DeviceDataPoint> points = devicePoints.computeIfAbsent(deviceId, k -> new ArrayList<>());
+                for (Map.Entry<String, Object> entry : request.getAttrs().entrySet()) {
+                    points.add(new DeviceDataPoint(deviceId, entry.getKey(), entry.getValue(), ts));
+                }
+            } catch (Exception e) {
+                log.error("消息反序列化失败，跳过: {}", message, e);
+                // 格式错误的消息不阻塞整批
+            }
+        }
+
+        // 2. 每组内按时间戳排序（保证同一设备数据顺序写入 TSDB）
+        for (List<DeviceDataPoint> points : devicePoints.values()) {
+            points.sort(Comparator.comparingLong(DeviceDataPoint::getTimestamp));
+        }
+
+        // 3. 按 productKey 路由到 Processor，批量写入 TSDB
+        try {
+            for (Map.Entry<String, List<DeviceDataPoint>> entry : devicePoints.entrySet()) {
+                String deviceId = entry.getKey();
+                List<DeviceDataPoint> points = entry.getValue();
+
+                String productKey = deviceService.getProductKeyByDeviceId(deviceId);
+                if (productKey == null) {
+                    log.warn("无法获取 productKey，跳过 {} 条数据: deviceId={}", points.size(), deviceId);
+                    continue;
+                }
+
+                DeviceDataProcessor processor = processorMap.get(productKey);
+                if (processor == null) {
+                    log.warn("未找到处理器，跳过 {} 条数据: deviceId={}, productKey={}",
+                            points.size(), deviceId, productKey);
+                    continue;
+                }
+
+                processor.process(points);
+                log.debug("批次写入完成: deviceId={}, processor={}, points={}",
+                        deviceId, processor.getClass().getSimpleName(), points.size());
+            }
+
+            // 4. WebSocket 广播（写完 TSDB 再广播，保证一致性）
+            for (Map.Entry<String, List<DeviceDataPoint>> entry : devicePoints.entrySet()) {
+                for (DeviceDataPoint dp : entry.getValue()) {
+                    webSocketHandler.broadcastDeviceData(dp.getDeviceId(), dp.getAttrName(),
+                            dp.getValue(), dp.getTimestamp());
+                }
+            }
+
+            // 5. 全部成功，统一 ack
+            ack.acknowledge();
+            log.info("批量消费完成: {} 条消息，{} 个设备", messages.size(), devicePoints.size());
+
         } catch (Exception e) {
-            log.error("处理 Kafka 消息失败: {}", message, e);
-            // 不调用 ack.acknowledge()，消息将在一段时间后重新投递
+            log.error("批量处理失败，整批重试: {} 条消息", messages.size(), e);
+            throw new KafkaConsumeFailedException("设备数据批量处理失败", e);
         }
     }
 }

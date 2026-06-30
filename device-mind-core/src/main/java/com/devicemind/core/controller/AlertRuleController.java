@@ -1,5 +1,6 @@
 package com.devicemind.core.controller;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.devicemind.common.utils.Result;
 import com.devicemind.core.business.intf.IAlertRuleBusiness;
@@ -8,18 +9,17 @@ import com.devicemind.core.model.vo.AlertRuleVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequiredArgsConstructor
-@RequestMapping("/device-mind/alert-rules")
+@RequestMapping("/alert-rules")
 @Tag(name = "告警规则管理", description = "告警规则 CRUD")
 public class AlertRuleController {
 
-    private final IAlertRuleBusiness alertRuleBusiness;
+    @Autowired
+    private IAlertRuleBusiness alertRuleBusiness;
 
     @PostMapping("/list")
     @Operation(summary = "分页查询告警规则")

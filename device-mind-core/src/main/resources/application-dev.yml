@@ -30,26 +30,34 @@ spring:
       port: 6379
       password:
       timeout: 3000
-      lettuce:
-        pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 0
-          max-wait: 3000
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
       auto-offset-reset: latest
+    producer:
+      properties:
+        min.insync.replicas: 1   # 本地单节点 Kafka
+
+redisson:
+  connection-pool-size: 16
+  connection-minimum-idle-size: 4
+  retry-attempts: 3
+  retry-interval: 1000
 
 kafka:
+  topic:
+    partitions: 3
+    replicas: 1       # 本地单节点 Kafka
+    min-isr: 1
   topics:
     device-data: device-data
-
+    device-lifecycle: device-lifecycle
+    device-status: device-status
+    device-command: device-command
+    device-response: device-response
 agent-service:
   url: http://localhost:8081
 
-broker-service:
-  url: http://localhost:1884
 
 device:
   offline:

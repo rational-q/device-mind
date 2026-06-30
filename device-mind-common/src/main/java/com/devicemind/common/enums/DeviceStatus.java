@@ -7,27 +7,46 @@ import lombok.Getter;
  * 设备状态枚举
  */
 @Getter
-@AllArgsConstructor
 public enum DeviceStatus {
 
-    ONLINE(1, "在线"),
-    OFFLINE(0, "离线");
+    UNKNOWN("UNKNOWN", "未知"),
+    ONLINE("ONLINE", "在线"),
+    OFFLINE("OFFLINE", "离线");
 
-    private final int code;
+    private final String code;
     private final String desc;
+
+    DeviceStatus(String code, String desc) {
+        this.code = code;
+        this.desc = desc;
+    }
 
     /**
      * 根据 code 获取枚举
      */
-    public static DeviceStatus of(Integer code) {
+    public static DeviceStatus of(String code) {
         if (code == null) {
             return null;
         }
         for (DeviceStatus status : values()) {
-            if (status.code == code) {
+            if (status.code.equals(code)) {
                 return status;
             }
         }
-        return null;
+        return DeviceStatus.UNKNOWN;
+    }
+
+    /**
+     * 判断给定状态名称是否为在线
+     */
+    public static boolean isOnline(String code) {
+        return ONLINE.getCode().equals(code);
+    }
+
+    /**
+     * 判断给定状态名称是否为离线
+     */
+    public static boolean isOffline(String code) {
+        return OFFLINE.getCode().equals(code);
     }
 }

@@ -4,13 +4,50 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 10
+      delivery-timeout-ms: 30000
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        min.insync.replicas: 1   # 本地单节点 Kafka，ISR 只有 1
+        request.timeout.ms: 10000
+        retry.backoff.ms: 500
+        linger.ms: 10
+        batch.size: 16384
+        compression.type: snappy
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      timeout: 3000
+
+redisson:
+  connection-pool-size: 16
+  connection-minimum-idle-size: 4
+  retry-attempts: 3
+  retry-interval: 1000
 
 kafka:
+  topic:
+    partitions: 3
+    replicas: 1       # 本地单节点 Kafka
+    min-isr: 1
   topics:
     device-data: device-data
-
+    device-lifecycle: device-lifecycle
+    device-status: device-status
+    device-command: device-command
+    device-response: device-response
 core-service:
   url: http://localhost:8080
+
+broker:
+  auth:
+    enabled: true
+    username: mqtt
+    password: mqtt
 
 logging:
   level:

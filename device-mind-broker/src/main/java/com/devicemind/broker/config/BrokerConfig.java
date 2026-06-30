@@ -28,4 +28,17 @@ public class BrokerConfig {
 
     /** TCP 连接 backlog 队列大小 */
     private int backlog = 1024;
+
+    /** MQTT 认证配置 */
+    private Auth auth = new Auth();
+
+    @Data
+    public static class Auth {
+        /** 是否启用用户名密码认证 */
+        private boolean enabled = false;
+        /** 认证用户名 */
+        private String username;
+        /** 认证密码 */
+        private String password;
+    }
 }

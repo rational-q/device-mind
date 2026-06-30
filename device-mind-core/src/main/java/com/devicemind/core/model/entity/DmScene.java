@@ -1,6 +1,8 @@
 package com.devicemind.core.model.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.devicemind.common.model.entity.BasePojo;
 import lombok.Data;
@@ -15,6 +17,9 @@ import lombok.experimental.Accessors;
 @EqualsAndHashCode(callSuper = true)
 @TableName("dm_scene")
 public class DmScene extends BasePojo {
+
+    @TableId(type = IdType.ASSIGN_ID)
+    private Long id;
 
     private String name;
 

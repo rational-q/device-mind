@@ -28,7 +28,7 @@ public class SubscriptionManager {
      * 添加订阅关系
      */
     public void subscribe(Channel channel, String topicFilter) {
-        String channelId = channel.id().asShortText();
+        String channelId = channel.id().asLongText();
 
         subscriptions.computeIfAbsent(topicFilter, k -> new CopyOnWriteArraySet<>()).add(channel);
         channelTopics.computeIfAbsent(channelId, k -> new CopyOnWriteArraySet<>()).add(topicFilter);
@@ -40,7 +40,7 @@ public class SubscriptionManager {
      * 取消单个订阅
      */
     public void unsubscribe(Channel channel, String topicFilter) {
-        String channelId = channel.id().asShortText();
+        String channelId = channel.id().asLongText();
 
         Set<Channel> subs = subscriptions.get(topicFilter);
         if (subs != null) {
@@ -65,7 +65,7 @@ public class SubscriptionManager {
      * 清理某个 Channel 的所有订阅（设备断开时调用）
      */
     public void removeChannel(Channel channel) {
-        String channelId = channel.id().asShortText();
+        String channelId = channel.id().asLongText();
         Set<String> topics = channelTopics.remove(channelId);
         if (topics != null) {
             for (String topicFilter : topics) {

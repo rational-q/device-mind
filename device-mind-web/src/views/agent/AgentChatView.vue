@@ -37,9 +37,11 @@
           @keydown.enter.prevent="sendMessage"
           :disabled="sending"
         />
-        <el-button type="primary" @click="sendMessage" :loading="sending" style="margin-left:8px;align-self:flex-end">
-          发送
-        </el-button>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-left:8px;align-self:flex-end">
+          <el-button type="primary" @click="sendMessage" :loading="sending">
+            发送
+          </el-button>
+        </div>
       </div>
     </div>
 
@@ -82,8 +84,8 @@
 
 <script setup lang="ts">
 import { Bell } from '@element-plus/icons-vue'
-import { analyzeAlert, queryByNL } from '@/api/agent'
-import type { AlertAnalysisResponse, Nl2SqlResponse } from '@/types/agent'
+import { analyzeAlert, chat } from '@/api/agent'
+import type { AlertAnalysisResponse, ChatResponse } from '@/types/agent'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -136,22 +138,19 @@ function renderMessage(msg: ChatMessage): string {
     return html + '</div>'
   }
   if (msg.type === 'query' && msg.raw) {
-    const r = msg.raw as Nl2SqlResponse
-    let html = escHtml(r.explanation || msg.content)
-    if (r.sql) html += `<pre style="background:#f5f7fa;padding:8px;border-radius:4px;margin-top:8px;overflow-x:auto">${escHtml(r.sql)}</pre>`
-    if (r.results?.length) {
-      html += `<div style="margin-top:8px"><strong>📊 查询结果（${r.resultCount}条）：</strong></div>`
-      html += `<div style="overflow-x:auto"><table style="border-collapse:collapse;margin-top:4px;font-size:13px"><tr>`
-      const cols = Object.keys(r.results[0])
-      html += cols.map(c => `<th style="border:1px solid #dcdfe6;padding:4px 8px;background:#f5f7fa">${escHtml(c)}</th>`).join('')
-      html += '</tr>'
-      r.results.forEach((row: any) => {
-        html += '<tr>' + cols.map(c => `<td style="border:1px solid #dcdfe6;padding:4px 8px">${escHtml(String(row[c] ?? ''))}</td>`).join('') + '</tr>'
-      })
-      html += '</table></div>'
+    const r = msg.raw as ChatResponse
+    let html = escHtml(r.answer || msg.content)
+    if (r.toolsCalled?.length) {
+      html += `<div style="margin-top:6px;font-size:11px;color:#909399">🔧 调用了: ${r.toolsCalled.join(', ')}</div>`
+    }
+    if (r.pendingAction) {
+      html += `<div style="margin-top:8px;padding:8px;background:#fef0f0;border-left:3px solid #e64242;border-radius:4px">`
+      html += `<strong>⚠️ 待确认操作</strong><br>`
+      html += escHtml(r.pendingAction.message || '请确认是否执行此操作')
+      html += `</div>`
     }
     if (r.errorMsg) html += `<div style="color:#e64242">❌ ${escHtml(r.errorMsg)}</div>`
-    return html
+    return html + '</div>'
   }
   return escHtml(msg.content).replace(/\n/g, '<br>')
 }
@@ -187,10 +186,11 @@ async function doQuery(text: string) {
   scrollToBottom()
 
   try {
-    const res = await queryByNL({ question: text, execute: true })
+    const res = await chat({ question: text })
+    const answer = res.answer || (res.success ? '查询完成' : res.errorMsg || 'AI 未返回结果')
     messages.value[msgIdx] = {
       role: 'assistant',
-      content: res.explanation || (res.success ? '查询完成' : res.errorMsg || '查询失败'),
+      content: answer,
       type: 'query',
       raw: res,
     }
@@ -222,7 +222,7 @@ async function sendAlertAnalysis() {
       ruleName: alertForm.ruleName || undefined,
       level: alertForm.level || undefined,
       metric: alertForm.metric || undefined,
-      currentValue: alertForm.currentValue || undefined,
+      currentValue: alertForm.currentValue != null ? alertForm.currentValue : undefined,
       threshold: alertForm.threshold || undefined,
     })
     messages.value[msgIdx] = {

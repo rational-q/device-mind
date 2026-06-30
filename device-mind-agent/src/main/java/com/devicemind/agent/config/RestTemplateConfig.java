@@ -5,8 +5,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
-import java.net.http.HttpClient;
-import java.net.http.HttpConnectTimeoutException;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 
 /**

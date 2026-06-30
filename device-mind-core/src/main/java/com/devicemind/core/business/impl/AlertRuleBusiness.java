@@ -1,5 +1,6 @@
 package com.devicemind.core.business.impl;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.devicemind.common.exception.ServiceException;
@@ -8,7 +9,6 @@ import com.devicemind.core.model.dto.*;
 import com.devicemind.core.model.entity.DmAlertRule;
 import com.devicemind.core.model.vo.AlertRuleVO;
 import com.devicemind.core.stdsvc.intf.IDmAlertRuleService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -19,10 +19,10 @@ import java.util.List;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AlertRuleBusiness implements IAlertRuleBusiness {
 
-    private final IDmAlertRuleService alertRuleService;
+    @Autowired
+    private IDmAlertRuleService alertRuleService;
 
     @Override
     public Page<AlertRuleVO> listPage(AlertRulePageQueryDTO query) {

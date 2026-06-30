@@ -1,5 +1,6 @@
 package com.devicemind.core.controller;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.devicemind.common.utils.Result;
 import com.devicemind.core.business.intf.IProductBusiness;
@@ -10,18 +11,17 @@ import com.devicemind.core.model.vo.ProductVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequiredArgsConstructor
-@RequestMapping("/device-mind/products")
+@RequestMapping("/products")
 @Tag(name = "产品管理", description = "产品 CRUD")
 public class ProductController {
 
-    private final IProductBusiness productBusiness;
+    @Autowired
+    private IProductBusiness productBusiness;
 
     @PostMapping("/list")
     @Operation(summary = "分页查询产品列表")

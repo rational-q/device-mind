@@ -1,6 +1,6 @@
 package com.devicemind.broker.handler;
 
-import com.devicemind.broker.service.DeviceAuthService;
+import com.devicemind.common.kafka.producer.DeviceStatusProducer;
 import com.devicemind.broker.session.SessionManager;
 import com.devicemind.broker.session.SubscriptionManager;
 import com.devicemind.common.utils.TraceContext;
@@ -12,13 +12,13 @@ import lombok.extern.slf4j.Slf4j;
 public class DisconnectHandler extends ChannelInboundHandlerAdapter {
     private final SessionManager sessionManager;
     private final SubscriptionManager subscriptionManager;
-    private final DeviceAuthService deviceAuthService;
+    private final DeviceStatusProducer deviceStatusProducer;
 
     public DisconnectHandler(SessionManager sessionManager, SubscriptionManager subscriptionManager,
-                             DeviceAuthService deviceAuthService) {
+                             DeviceStatusProducer deviceStatusProducer) {
         this.sessionManager = sessionManager;
         this.subscriptionManager = subscriptionManager;
-        this.deviceAuthService = deviceAuthService;
+        this.deviceStatusProducer = deviceStatusProducer;
     }
 
     @Override
@@ -32,9 +32,9 @@ public class DisconnectHandler extends ChannelInboundHandlerAdapter {
             sessionManager.unregister(ctx.channel());
             subscriptionManager.removeChannel(ctx.channel());
 
-            // 通知 Core 设备离线
+            // 通知 Core 设备离线（Kafka）
             if (clientId != null) {
-                deviceAuthService.notifyStatusChange(clientId, "OFFLINE");
+                deviceStatusProducer.offline(clientId);
             }
 
             ctx.fireChannelInactive();

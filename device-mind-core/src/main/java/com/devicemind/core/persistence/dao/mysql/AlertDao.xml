@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.devicemind.core.persistence.dao.mysql.AlertDao">
+
+    <select id="selectAlertPage" resultType="com.devicemind.core.model.vo.AlertVO">
+        SELECT ID,
+               DEVICE_ID       AS deviceId,
+               RULE_ID         AS ruleId,
+               RULE_NAME       AS ruleName,
+               LEVEL           AS level,
+               METRIC          AS metric,
+               CURRENT_VALUE   AS currentValue,
+               THRESHOLD       AS threshold,
+               TRIGGERED_AT    AS triggeredAt,
+               CONFIRMED_AT    AS confirmedAt,
+               RESOLVED_AT     AS resolvedAt,
+               STATUS          AS status,
+               AI_ANALYSIS     AS aiAnalysis
+        FROM dm_alert
+        <where>
+            <if test="deviceId != null and deviceId != ''">
+                AND DEVICE_ID LIKE CONCAT('%', #{deviceId}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                AND STATUS = #{status}
+            </if>
+            <if test="level != null and level != ''">
+                AND LEVEL = #{level}
+            </if>
+            <if test="startTime != null">
+                AND TRIGGERED_AT &gt;= FROM_UNIXTIME(#{startTime} / 1000)
+            </if>
+            <if test="endTime != null">
+                AND TRIGGERED_AT &lt;= FROM_UNIXTIME(#{endTime} / 1000)
+            </if>
+        </where>
+        ORDER BY TRIGGERED_AT DESC
+    </select>
+
+</mapper>
