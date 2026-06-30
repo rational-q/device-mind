@@ -1,7 +1,7 @@
 export interface AlertVO {
   id: string
   deviceId: string
-  ruleId: number
+  ruleId: string
   ruleName: string
   level: string
   metric: string

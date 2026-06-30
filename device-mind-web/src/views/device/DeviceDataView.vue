@@ -105,7 +105,7 @@ async function fetchData() {
       pageNum: query.pageNum,
       pageSize: query.pageSize,
     })
-    tableData.value = res.records
+    tableData.value = res.records; if (res.records.length > 0) ElMessage.success("查询到 " + res.total + " 条数据"); else ElMessage.info("未查到数据")
     total.value = res.total
   } finally {
     loading.value = false

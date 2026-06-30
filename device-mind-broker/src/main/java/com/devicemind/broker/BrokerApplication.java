@@ -1,5 +1,6 @@
 package com.devicemind.broker;
 
+import com.devicemind.common.config.JacksonConfig;
 import com.devicemind.common.config.KafkaErrorHandlerConfig;
 import com.devicemind.common.config.KafkaProducerConfig;
 import com.devicemind.common.config.KafkaTopicConfig;
@@ -13,6 +14,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @EnableScheduling
 @Import({
+        JacksonConfig.class,
         KafkaProducerConfig.class,
         KafkaTopicConfig.class,
         KafkaErrorHandlerConfig.class,

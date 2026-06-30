@@ -56,7 +56,7 @@ public class DeviceDataHandler implements FunctionHandler {
                     ? args.get("hours").asInt() : null;
             return coreApiClient.getDeviceData(deviceId, attrName, hours);
         } catch (Exception e) {
-            return "{\"error\":\"参数解析失败: " + e.getMessage() + "\"}";
+            return com.devicemind.agent.function.FunctionHandler.errorJson("参数解析失败: " + e.getMessage());
         }
     }
 }

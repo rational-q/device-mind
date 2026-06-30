@@ -36,7 +36,7 @@ import { getAlertList, confirmAlert as confirmApi, resolveAlert as resolveApi } 
 import { ALERT_LEVEL_MAP, ALERT_STATUS_MAP } from '@/utils/constants'
 import { formatDateTime } from '@/utils/date'
 import type { AlertVO } from '@/types/alert'
-
+import { ElMessage } from 'element-plus'
 const query = reactive({ deviceId: '', level: '', status: '', pageNum: 1, pageSize: 10 })
 const tableData = ref<AlertVO[]>([])
 const total = ref(0)
@@ -44,8 +44,8 @@ const loading = ref(false)
 
 async function fetchData() { loading.value = true; try { const res = await getAlertList(query); tableData.value = res.records; total.value = res.total } finally { loading.value = false } }
 function resetQuery() { Object.assign(query, { deviceId: '', level: '', status: '', pageNum: 1 }); fetchData() }
-async function confirmAlert(id: string) { await confirmApi(id); fetchData() }
-async function resolveAlert(id: string) { await resolveApi(id); fetchData() }
+async function confirmAlert(id: string) { await confirmApi(id); ElMessage.success("已确认"); fetchData() }
+async function resolveAlert(id: string) { await resolveApi(id); ElMessage.success("已恢复"); fetchData() }
 
 onMounted(fetchData)
 </script>

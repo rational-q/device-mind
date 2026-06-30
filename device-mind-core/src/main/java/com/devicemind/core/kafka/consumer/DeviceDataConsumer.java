@@ -71,6 +71,12 @@ public class DeviceDataConsumer {
         for (String message : messages) {
             try {
                 DeviceDataRequest request = JsonUtil.fromJson(message, DeviceDataRequest.class);
+                if (request == null || request.getDeviceId() == null
+                        || request.getAttrs() == null || request.getAttrs().isEmpty()) {
+                    // 结构不符（缺 deviceId 或 attrs）的脏消息，跳过且不阻塞整批
+                    log.warn("设备数据消息结构非法（缺 deviceId 或 attrs），跳过: {}", message);
+                    continue;
+                }
                 String deviceId = request.getDeviceId();
                 long ts = request.getTimestamp() != null ? request.getTimestamp() : System.currentTimeMillis() / 1000;
 

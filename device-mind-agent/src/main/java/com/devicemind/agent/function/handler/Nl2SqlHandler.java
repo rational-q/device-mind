@@ -31,10 +31,11 @@ public class Nl2SqlHandler implements FunctionHandler {
 
             表结构:
             device_data (时序超表)
-            - time           TIMESTAMPTZ    NOT NULL    — 数据时间戳
-            - device_id      VARCHAR(64)    NOT NULL    — 设备唯一标识
-            - attr_name      VARCHAR(50)    NOT NULL    — 属性名称（如 temperature, humidity）
-            - value          DOUBLE PRECISION           — 属性值
+            - time           TIMESTAMPTZ        NOT NULL    — 数据时间戳
+            - device_id      VARCHAR(64)        NOT NULL    — 设备唯一标识
+            - attr_name      VARCHAR(50)        NOT NULL    — 属性名称（如 temperature, humidity）
+            - value          DOUBLE PRECISION               — 数值型属性值（字符串型属性此列为 NULL）
+            - value_text     TEXT                           — 字符串/枚举型属性值（数值型属性此列为 NULL）
             超表按 time 分区，按 device_id + time DESC 索引
 
             说明:
@@ -112,7 +113,7 @@ public class Nl2SqlHandler implements FunctionHandler {
             // 1. AI 生成 SQL
             String rawResponse = deepSeekClient.chat(SYSTEM_PROMPT, buildUserPrompt(question, deviceId, productKey));
             if (rawResponse == null) {
-                return "{\"error\":\"AI 服务暂时不可用\"}";
+                return FunctionHandler.errorJson("AI 服务暂时不可用");
             }
 
             // 2. 解析结果
@@ -144,20 +145,40 @@ public class Nl2SqlHandler implements FunctionHandler {
 
         } catch (Exception e) {
             log.warn("NL2SQL 执行失败", e);
-            return "{\"error\":\"查询执行失败: " + esc(e.getMessage()) + "\"}";
+            return FunctionHandler.errorJson("查询执行失败: " + e.getMessage());
         }
     }
 
     /** 安全执行 SELECT 查询 */
     private List<Map<String, Object>> executeQuery(String sql) {
-        String trimmed = sql.trim().toUpperCase();
-        if (!trimmed.startsWith("SELECT")) {
-            log.warn("非 SELECT 语句，拒绝执行: {}", sql.substring(0, Math.min(50, sql.length())));
+        String cleaned = sql.trim().replaceAll(";\\s*$", "");
+        String upper = cleaned.toUpperCase();
+
+        // 只读校验：必须以 SELECT 开头
+        if (!upper.startsWith("SELECT")) {
+            log.warn("非 SELECT 语句，拒绝执行: {}", cleaned.substring(0, Math.min(50, cleaned.length())));
             return null;
         }
-        String limitedSql = sql;
-        if (!trimmed.contains("LIMIT")) {
-            limitedSql = sql.trim().replaceAll(";\\s*$", "") + " LIMIT " + MAX_RESULT_ROWS;
+        // 阻断多语句（去掉尾分号后仍含分号 = 拼接了第二条语句）
+        if (cleaned.contains(";")) {
+            log.warn("检测到多语句，拒绝执行: {}", cleaned.substring(0, Math.min(80, cleaned.length())));
+            return null;
+        }
+        // 阻断写/DDL 关键字（即便包在 CTE / 子查询里）
+        if (containsForbiddenKeyword(upper)) {
+            log.warn("检测到非只读关键字，拒绝执行: {}", cleaned.substring(0, Math.min(80, cleaned.length())));
+            return null;
+        }
+        // 仅允许查询 device_data 表
+        if (!upper.contains("DEVICE_DATA")) {
+            log.warn("查询未涉及 device_data 表，拒绝执行: {}", cleaned.substring(0, Math.min(80, cleaned.length())));
+            return null;
+        }
+
+        // 用正则判断是否已有 LIMIT 子句（避免列名/字符串里含 "LIMIT" 误判）
+        String limitedSql = cleaned;
+        if (!LIMIT_CLAUSE.matcher(upper).find()) {
+            limitedSql = cleaned + " LIMIT " + MAX_RESULT_ROWS;
         }
         try {
             long start = System.currentTimeMillis();
@@ -171,6 +192,21 @@ public class Nl2SqlHandler implements FunctionHandler {
             log.error("SQL 执行失败: {}", e.getMessage());
             return null;
         }
+    }
+
+    /** 以单词边界匹配 LIMIT 子句，避免列名/字符串误判 */
+    private static final java.util.regex.Pattern LIMIT_CLAUSE =
+            java.util.regex.Pattern.compile("\\bLIMIT\\b");
+
+    /** 写操作 / DDL 关键字黑名单（按单词边界匹配） */
+    private static final java.util.regex.Pattern FORBIDDEN_KEYWORDS =
+            java.util.regex.Pattern.compile(
+                    "\\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|"
+                            + "MERGE|CALL|COPY|VACUUM|REINDEX|COMMENT|SET|RESET|EXECUTE|"
+                            + "INTO|RETURNING)\\b");
+
+    private boolean containsForbiddenKeyword(String upperSql) {
+        return FORBIDDEN_KEYWORDS.matcher(upperSql).find();
     }
 
     private String buildUserPrompt(String question, String deviceId, String productKey) {

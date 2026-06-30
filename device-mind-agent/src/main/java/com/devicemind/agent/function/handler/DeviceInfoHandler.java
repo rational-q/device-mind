@@ -45,7 +45,7 @@ public class DeviceInfoHandler implements FunctionHandler {
             String deviceId = args.get("deviceId").asText();
             return coreApiClient.getDeviceInfo(deviceId);
         } catch (Exception e) {
-            return "{\"error\":\"参数解析失败: " + e.getMessage() + "\"}";
+            return com.devicemind.agent.function.FunctionHandler.errorJson("参数解析失败: " + e.getMessage());
         }
     }
 }

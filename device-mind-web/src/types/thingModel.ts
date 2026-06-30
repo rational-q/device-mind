@@ -1,6 +1,6 @@
 export interface ThingAttributeVO {
   id: string
-  productId: number
+  productId: string
   identifier: string
   name: string
   dataType: string
@@ -28,7 +28,7 @@ export interface ThingAttributeUpdateDTO {
 
 export interface ThingServiceVO {
   id: string
-  productId: number
+  productId: string
   identifier: string
   name: string
   callType: string
@@ -38,7 +38,7 @@ export interface ThingServiceVO {
 
 export interface ThingServiceParamVO {
   id: string
-  serviceId: number
+  serviceId: string
   identifier: string
   name: string
   dataType: string
@@ -72,7 +72,7 @@ export interface ThingServiceUpdateDTO {
 
 export interface ThingEventVO {
   id: string
-  productId: number
+  productId: string
   identifier: string
   name: string
   type: string

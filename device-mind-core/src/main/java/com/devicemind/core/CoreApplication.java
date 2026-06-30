@@ -1,6 +1,7 @@
 package com.devicemind.core;
 
 import com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration;
+import com.devicemind.common.config.JacksonConfig;
 import com.devicemind.common.config.KafkaErrorHandlerConfig;
 import com.devicemind.common.config.KafkaProducerConfig;
 import com.devicemind.common.config.KafkaTopicConfig;
@@ -21,6 +22,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  */
 @EnableScheduling
 @Import({
+        JacksonConfig.class,
         SwaggerConfig.class,
         KafkaProducerConfig.class,
         KafkaTopicConfig.class,

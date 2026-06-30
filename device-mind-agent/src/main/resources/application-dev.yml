@@ -20,8 +20,8 @@ spring:
 
 deepseek:
   api:
-    url: https://api.deepseek.com
-    key: sk-d8436d20b10a4f21aeccac8042e3c032
+    url: ${DEEPSEEK_API_URL:https://api.deepseek.com}
+    key: ${DEEPSEEK_API_KEY:}
     timeout: 30
 
 core-service:

@@ -20,7 +20,7 @@
       <el-table-column label="操作" width="220">
         <template #default="{ row }">
           <el-button size="small" @click="$router.push(`/device-detail?id=${row.id}`)">详情</el-button>
-          <el-button size="small" @click="openDialog(row)">编辑</el-button>
+          <el-button size="small" @click="openDialog(row as DeviceVO)">编辑</el-button>
           <el-popconfirm title="确认删除？" @confirm="handleDelete(row.id)">
             <template #reference><el-button size="small" type="danger">删除</el-button></template>
           </el-popconfirm>
@@ -48,10 +48,10 @@ import { getDeviceList, createDevice, updateDevice, deleteDevice } from '@/api/d
 import { getProductList } from '@/api/product'
 import { DEVICE_STATUS_MAP } from '@/utils/constants'
 import { formatDateTime } from '@/utils/date'
-import type { DeviceVO, DeviceCreateDTO } from '@/types/device'
+import type { DeviceVO } from '@/types/device'
 import type { ProductVO } from '@/types/product'
 import type { FormInstance } from 'element-plus'
-
+import { ElMessage } from 'element-plus'
 const query = reactive({ deviceId: '', status: '', pageNum: 1, pageSize: 10 })
 const tableData = ref<DeviceVO[]>([])
 const total = ref(0)
@@ -72,12 +72,12 @@ async function openDialog(row?: DeviceVO) {
 }
 function resetForm() { formRef.value?.resetFields() }
 async function handleSave() {
-  await formRef.value?.validate()
-  if (form.id) await updateDevice(form.id, { name: form.name, location: form.location, firmwareVersion: form.firmwareVersion, tags: form.tags })
-  else await createDevice({ deviceId: form.deviceId, productId: form.productId, name: form.name, location: form.location, firmwareVersion: form.firmwareVersion, tags: form.tags })
+  
+  if (form.id) { await updateDevice(form.id, { name: form.name, location: form.location, firmwareVersion: form.firmwareVersion, tags: form.tags }); ElMessage.success('更新成功') }
+  else { await createDevice({ deviceId: form.deviceId, productId: form.productId, name: form.name, location: form.location, firmwareVersion: form.firmwareVersion, tags: form.tags }); ElMessage.success('创建成功') }
   dialogVisible.value = false; fetchData()
 }
-async function handleDelete(id: string) { await deleteDevice(id); fetchData() }
+async function handleDelete(id: string) { await deleteDevice(id); ElMessage.success("删除成功"); fetchData() }
 
 onMounted(fetchData)
 </script>

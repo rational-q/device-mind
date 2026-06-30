@@ -94,7 +94,7 @@ import { Promotion } from '@element-plus/icons-vue'
 import PageContainer from '@/components/common/PageContainer.vue'
 import { sendCommand } from '@/api/command'
 import type { CommandSendResponse } from '@/types/command'
-
+import { ElMessage } from 'element-plus'
 interface Template {
   label: string
   deviceId: string

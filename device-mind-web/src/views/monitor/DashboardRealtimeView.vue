@@ -53,7 +53,7 @@
       <el-col :span="6">
         <el-card shadow="never" class="alert-card">
           <template #header><span>实时告警</span></template>
-          <div class="alert-list" ref="alertListRef">
+          <div class="alert-list">
             <div v-for="(a, i) in alertList" :key="i" class="alert-item" :class="a.level.toLowerCase()">
               <div class="alert-time">{{ formatTime(a.timestamp) }}</div>
               <div class="alert-device">{{ a.deviceId }}</div>
@@ -91,7 +91,6 @@ const stats = reactive({ onlineDevices: 0, totalDevices: 0, activeAlerts: 0, dat
 // 告警列表
 interface AlertItem { deviceId: string; ruleName: string; level: string; timestamp: number }
 const alertList = ref<AlertItem[]>([])
-const alertListRef = ref<HTMLElement>()
 
 // ECharts 曲线数据
 const chartData = reactive({ time: [] as string[], value: [] as number[] })

@@ -93,7 +93,7 @@ public class AnalysisBusiness implements IAnalysisBusiness {
             return ChatResponse.builder().sessionId(sessionId).success(false).errorMsg("AI 服务暂时不可用").toolsCalled(toolsCalled).build();
         }
 
-        conversationStore.saveRound(sessionId, userPrompt.toString(), rawResponse);
+        conversationStore.saveRound(sessionId, question, rawResponse);
 
         return ChatResponse.builder().sessionId(sessionId).success(true).answer(rawResponse)
                 .toolsCalled(toolsCalled).pendingAction(pendingAction.isEmpty() ? null : pendingAction).rawResponse(rawResponse).build();
@@ -103,9 +103,8 @@ public class AnalysisBusiness implements IAnalysisBusiness {
 
     private String runToolLoop(List<DeepSeekClient.Message> messages, List<com.devicemind.agent.function.ToolDefinition> tools) {
         for (int round = 0; round < MAX_TOOL_ROUNDS; round++) {
-            DeepSeekClient.ChatResponse response = deepSeekClient.chatWithTools(messages, tools);
-            if (response == null) return null;
-            DeepSeekClient.Message msg = response.getChoices().get(0).getMessage();
+            DeepSeekClient.Message msg = firstMessage(deepSeekClient.chatWithTools(messages, tools));
+            if (msg == null) return null;
             if (msg.getToolCalls() == null || msg.getToolCalls().isEmpty()) return msg.getContent();
             messages.add(msg);
             for (DeepSeekClient.ToolCall tc : msg.getToolCalls()) {
@@ -113,16 +112,16 @@ public class AnalysisBusiness implements IAnalysisBusiness {
                         functionRegistry.execute(tc.getFunction().getName(), tc.getFunction().getArguments())));
             }
         }
-        return null;
+        // 工具轮次用尽，做一次不带工具的收口调用，拿模型的最终文本而非直接判失败
+        return finalAnswer(messages);
     }
 
     private String runToolLoopWithTracking(List<DeepSeekClient.Message> messages,
                                             List<com.devicemind.agent.function.ToolDefinition> tools,
                                             List<String> toolsCalled, Map<String, Object> pendingActionOut) {
         for (int round = 0; round < MAX_TOOL_ROUNDS; round++) {
-            DeepSeekClient.ChatResponse response = deepSeekClient.chatWithTools(messages, tools);
-            if (response == null) return null;
-            DeepSeekClient.Message msg = response.getChoices().get(0).getMessage();
+            DeepSeekClient.Message msg = firstMessage(deepSeekClient.chatWithTools(messages, tools));
+            if (msg == null) return null;
             if (msg.getToolCalls() == null || msg.getToolCalls().isEmpty()) return msg.getContent();
             messages.add(msg);
             for (DeepSeekClient.ToolCall tc : msg.getToolCalls()) {
@@ -135,7 +134,28 @@ public class AnalysisBusiness implements IAnalysisBusiness {
                 messages.add(new DeepSeekClient.Message(tc.getId(), name, result));
             }
         }
-        return null;
+        // 工具轮次用尽，收口拿最终文本
+        return finalAnswer(messages);
+    }
+
+    /** 安全提取首个 choice 的 message，response/choices 为空时返回 null */
+    private DeepSeekClient.Message firstMessage(DeepSeekClient.ChatResponse response) {
+        if (response == null || response.getChoices() == null || response.getChoices().isEmpty()) {
+            return null;
+        }
+        return response.getChoices().get(0).getMessage();
+    }
+
+    /** 工具轮次用尽后的收口调用：不再带 tools，强制模型基于已有上下文产出最终回答 */
+    private String finalAnswer(List<DeepSeekClient.Message> messages) {
+        log.warn("工具调用达到上限 {} 轮，执行收口调用获取最终回答", MAX_TOOL_ROUNDS);
+        try {
+            DeepSeekClient.Message msg = firstMessage(deepSeekClient.chatWithTools(messages, Collections.emptyList()));
+            return msg != null ? msg.getContent() : null;
+        } catch (Exception e) {
+            log.warn("收口调用失败", e);
+            return null;
+        }
     }
 
     private String buildAlertUserPrompt(AlertAnalysisRequest r) {

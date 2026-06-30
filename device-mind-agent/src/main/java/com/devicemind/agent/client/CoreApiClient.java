@@ -25,27 +25,46 @@ public class CoreApiClient {
     private RestTemplate restTemplate;
     @Autowired
     private CoreServiceConfig config;
+
+    /** 聚合统计时单页大小 */
+    private static final int STAT_PAGE_SIZE = 200;
+    /** 聚合统计时最大翻页数（防止设备/告警量过大时无限翻页） */
+    private static final int MAX_STAT_PAGES = 50;
+
+    /** 构造统一转义的错误 JSON，避免 message 含引号/换行导致非法 JSON */
+    private static String errorJson(String message) {
+        try {
+            return JsonUtil.toJson(Map.of("error", message == null ? "" : message));
+        } catch (Exception e) {
+            return "{\"error\":\"内部错误\"}";
+        }
+    }
     // ==================== 设备信息 ====================
 
     /**
      * 查询设备基本信息
-     * Core 的 detail 接口用 Long id 查，故通过 list 接口按 deviceId 过滤
+     * Core 的 detail 接口用 Long id 查，list 接口的 deviceId 是模糊匹配，
+     * 故拉取候选后在内存中按 deviceId 精确匹配，避免 temp-1 命中 temp-10。
      */
     public String getDeviceInfo(String deviceId) {
         try {
             Map<String, Object> body = new HashMap<>();
             body.put("deviceId", deviceId);
             body.put("pageNum", 1);
-            body.put("pageSize", 1);
+            body.put("pageSize", 50);
             JsonNode result = doPost(config.getUrl() + "/device-mind/core/devices/list", body);
             JsonNode records = result.get("records");
-            if (records != null && records.isArray() && records.size() > 0) {
-                return JsonUtil.toJson(records.get(0));
+            if (records != null && records.isArray()) {
+                for (JsonNode r : records) {
+                    if (r.has("deviceId") && deviceId.equals(r.get("deviceId").asText())) {
+                        return JsonUtil.toJson(r);
+                    }
+                }
             }
-            return "{\"error\":\"未找到设备: " + deviceId + "\"}";
+            return errorJson("未找到设备: " + deviceId);
         } catch (Exception e) {
             log.warn("查询设备信息失败: deviceId={}", deviceId, e);
-            return "{\"error\":\"查询设备信息失败: " + e.getMessage() + "\"}";
+            return errorJson("查询设备信息失败: " + e.getMessage());
         }
     }
 
@@ -76,7 +95,7 @@ public class CoreApiClient {
             return "[]";
         } catch (Exception e) {
             log.warn("查询设备数据失败: deviceId={}", deviceId, e);
-            return "{\"error\":\"查询设备数据失败: " + e.getMessage() + "\"}";
+            return errorJson("查询设备数据失败: " + e.getMessage());
         }
     }
 
@@ -89,10 +108,13 @@ public class CoreApiClient {
         try {
             String url = config.getUrl() + "/device-mind/core/shadows?deviceId=" + deviceId;
             JsonNode result = doGet(url);
+            if (result == null || result.isNull()) {
+                return errorJson("设备无影子数据: " + deviceId);
+            }
             return JsonUtil.toJson(result);
         } catch (Exception e) {
             log.warn("查询设备影子失败: deviceId={}", deviceId, e);
-            return "{\"error\":\"查询设备影子失败: " + e.getMessage() + "\"}";
+            return errorJson("查询设备影子失败: " + e.getMessage());
         }
     }
 
@@ -122,7 +144,7 @@ public class CoreApiClient {
             return "[]";
         } catch (Exception e) {
             log.warn("查询告警历史失败: deviceId={}", deviceId, e);
-            return "{\"error\":\"查询告警历史失败: " + e.getMessage() + "\"}";
+            return errorJson("查询告警历史失败: " + e.getMessage());
         }
     }
 
@@ -148,7 +170,7 @@ public class CoreApiClient {
             return "[]";
         } catch (Exception e) {
             log.warn("查询告警规则失败", e);
-            return "{\"error\":\"查询告警规则失败: " + e.getMessage() + "\"}";
+            return errorJson("查询告警规则失败: " + e.getMessage());
         }
     }
 
@@ -162,22 +184,25 @@ public class CoreApiClient {
             Map<String, Object> body = new HashMap<>();
             if (deviceId != null && !deviceId.isBlank()) body.put("deviceId", deviceId);
             if (productKey != null && !productKey.isBlank()) body.put("productKey", productKey);
-            body.put("pageNum", 1);
-            body.put("pageSize", 500);
-            JsonNode result = doPost(config.getUrl() + "/device-mind/core/devices/list", body);
-            JsonNode records = result.get("records");
-            if (records == null || !records.isArray()) return "{\"total\":0,\"online\":0,\"offline\":0}";
 
-            int total = records.size();
-            int online = 0;
-            for (JsonNode r : records) {
-                String status = r.has("status") ? r.get("status").asText() : "";
-                if ("ONLINE".equalsIgnoreCase(status)) online++;
+            int total = 0, online = 0;
+            for (int pageNum = 1; pageNum <= MAX_STAT_PAGES; pageNum++) {
+                body.put("pageNum", pageNum);
+                body.put("pageSize", STAT_PAGE_SIZE);
+                JsonNode result = doPost(config.getUrl() + "/device-mind/core/devices/list", body);
+                JsonNode records = result.get("records");
+                if (records == null || !records.isArray() || records.isEmpty()) break;
+                for (JsonNode r : records) {
+                    total++;
+                    String status = r.has("status") ? r.get("status").asText() : "";
+                    if ("ONLINE".equalsIgnoreCase(status)) online++;
+                }
+                if (records.size() < STAT_PAGE_SIZE) break;
             }
             return String.format("{\"total\":%d,\"online\":%d,\"offline\":%d}", total, online, total - online);
         } catch (Exception e) {
             log.warn("查询设备状态统计失败", e);
-            return "{\"error\":\"查询失败: " + e.getMessage() + "\"}";
+            return errorJson("查询失败: " + e.getMessage());
         }
     }
 
@@ -195,26 +220,29 @@ public class CoreApiClient {
             Map<String, Object> body = new HashMap<>();
             body.put("startTime", start);
             body.put("endTime", now);
-            body.put("pageNum", 1);
-            body.put("pageSize", 100);
-            JsonNode result = doPost(config.getUrl() + "/device-mind/core/alerts/list", body);
-            JsonNode records = result.get("records");
-            if (records == null || !records.isArray()) return "{\"total\":0,\"byLevel\":{}}";
 
             int critical = 0, warn = 0, info = 0;
-            for (JsonNode r : records) {
-                String level = r.has("level") ? r.get("level").asText().toUpperCase() : "";
-                switch (level) {
-                    case "CRITICAL" -> critical++;
-                    case "WARN", "WARNING" -> warn++;
-                    default -> info++;
+            for (int pageNum = 1; pageNum <= MAX_STAT_PAGES; pageNum++) {
+                body.put("pageNum", pageNum);
+                body.put("pageSize", STAT_PAGE_SIZE);
+                JsonNode result = doPost(config.getUrl() + "/device-mind/core/alerts/list", body);
+                JsonNode records = result.get("records");
+                if (records == null || !records.isArray() || records.isEmpty()) break;
+                for (JsonNode r : records) {
+                    String level = r.has("level") ? r.get("level").asText().toUpperCase() : "";
+                    switch (level) {
+                        case "CRITICAL" -> critical++;
+                        case "WARN", "WARNING" -> warn++;
+                        default -> info++;
+                    }
                 }
+                if (records.size() < STAT_PAGE_SIZE) break;
             }
             return String.format("{\"total\":%d,\"critical\":%d,\"warn\":%d,\"info\":%d,\"hours\":%d}",
                     critical + warn + info, critical, warn, info, h);
         } catch (Exception e) {
             log.warn("查询告警概览失败", e);
-            return "{\"error\":\"查询失败: " + e.getMessage() + "\"}";
+            return errorJson("查询失败: " + e.getMessage());
         }
     }
 
@@ -233,20 +261,24 @@ public class CoreApiClient {
             body.put("deviceId", deviceId);
             body.put("startTime", start);
             body.put("endTime", now);
-            body.put("pageNum", 1);
-            body.put("pageSize", 200);
-            JsonNode result = doPost(config.getUrl() + "/device-mind/core/command-logs/list", body);
-            JsonNode records = result.get("records");
-            if (records == null || !records.isArray()) return "{\"total\":0,\"success\":0,\"failed\":0,\"pending\":0}";
 
-            int total = records.size(), success = 0, failed = 0, pending = 0;
-            for (JsonNode r : records) {
-                String status = r.has("status") ? r.get("status").asText().toUpperCase() : "";
-                switch (status) {
-                    case "SUCCESS" -> success++;
-                    case "EXPIRED", "FAILED" -> failed++;
-                    default -> pending++;
+            int total = 0, success = 0, failed = 0, pending = 0;
+            for (int pageNum = 1; pageNum <= MAX_STAT_PAGES; pageNum++) {
+                body.put("pageNum", pageNum);
+                body.put("pageSize", STAT_PAGE_SIZE);
+                JsonNode result = doPost(config.getUrl() + "/device-mind/core/command-logs/list", body);
+                JsonNode records = result.get("records");
+                if (records == null || !records.isArray() || records.isEmpty()) break;
+                for (JsonNode r : records) {
+                    total++;
+                    String status = r.has("status") ? r.get("status").asText().toUpperCase() : "";
+                    switch (status) {
+                        case "SUCCESS" -> success++;
+                        case "EXPIRED", "FAILED" -> failed++;
+                        default -> pending++;
+                    }
                 }
+                if (records.size() < STAT_PAGE_SIZE) break;
             }
             double rate = total > 0 ? Math.round(success * 10000.0 / total) / 100.0 : 0;
             return String.format(
@@ -254,7 +286,7 @@ public class CoreApiClient {
                     total, success, failed, pending, rate, h);
         } catch (Exception e) {
             log.warn("查询指令统计失败", e);
-            return "{\"error\":\"查询失败: " + e.getMessage() + "\"}";
+            return errorJson("查询失败: " + e.getMessage());
         }
     }
 

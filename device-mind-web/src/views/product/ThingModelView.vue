@@ -10,7 +10,7 @@
           <el-table-column prop="accessMode" label="读写" /><el-table-column prop="description" label="描述" />
           <el-table-column label="操作" width="140">
             <template #default="{ row }">
-              <el-button size="small" @click="openAttrDialog(row)">编辑</el-button>
+              <el-button size="small" @click="openAttrDialog(row as T.ThingAttributeVO)">编辑</el-button>
               <el-popconfirm title="确认删除？" @confirm="deleteAttribute(row.id)"><template #reference><el-button size="small" type="danger">删除</el-button></template></el-popconfirm>
             </template>
           </el-table-column>
@@ -23,7 +23,7 @@
           <el-table-column prop="callType" label="调用类型" /><el-table-column prop="description" label="描述" />
           <el-table-column label="操作" width="140">
             <template #default="{ row }">
-              <el-button size="small" @click="openSvcDialog(row)">编辑</el-button>
+              <el-button size="small" @click="openSvcDialog(row as T.ThingServiceVO)">编辑</el-button>
               <el-popconfirm title="确认删除？" @confirm="deleteService(row.id)"><template #reference><el-button size="small" type="danger">删除</el-button></template></el-popconfirm>
             </template>
           </el-table-column>
@@ -36,7 +36,7 @@
           <el-table-column prop="type" label="类型" /><el-table-column prop="description" label="描述" />
           <el-table-column label="操作" width="140">
             <template #default="{ row }">
-              <el-button size="small" @click="openEvtDialog(row)">编辑</el-button>
+              <el-button size="small" @click="openEvtDialog(row as T.ThingEventVO)">编辑</el-button>
               <el-popconfirm title="确认删除？" @confirm="deleteEvent(row.id)"><template #reference><el-button size="small" type="danger">删除</el-button></template></el-popconfirm>
             </template>
           </el-table-column>
@@ -46,9 +46,9 @@
 
     <!-- 属性弹窗 -->
     <el-dialog :title="attrForm.id ? '编辑属性' : '新增属性'" v-model="attrDialog" width="500px">
-      <el-form :model="attrForm" ref="attrFormRef" label-width="80px">
-        <el-form-item label="标识" prop="identifier"><el-input v-model="attrForm.identifier" :disabled="!!attrForm.id" /></el-form-item>
-        <el-form-item label="名称"><el-input v-model="attrForm.name" /></el-form-item>
+      <el-form :model="attrForm" ref="attrFormRef" label-width="80px" :rules="attrRules">
+        <el-form-item label="标识" prop="identifier" required><el-input v-model="attrForm.identifier" :disabled="!!attrForm.id" /></el-form-item>
+        <el-form-item label="名称" prop="name" required><el-input v-model="attrForm.name" /></el-form-item>
         <el-form-item label="类型"><el-select v-model="attrForm.dataType"><el-option v-for="t in ['DOUBLE','INT','STRING','ENUM']" :key="t" :value="t" /></el-select></el-form-item>
         <el-form-item label="单位"><el-input v-model="attrForm.unit" /></el-form-item>
         <el-form-item label="读写"><el-select v-model="attrForm.accessMode"><el-option value="R" label="只读" /><el-option value="RW" label="读写" /></el-select></el-form-item>
@@ -59,9 +59,9 @@
 
     <!-- 服务弹窗 -->
     <el-dialog :title="svcForm.id ? '编辑服务' : '新增服务'" v-model="svcDialog" width="500px">
-      <el-form :model="svcForm" ref="svcFormRef" label-width="80px">
-        <el-form-item label="标识"><el-input v-model="svcForm.identifier" :disabled="!!svcForm.id" /></el-form-item>
-        <el-form-item label="名称"><el-input v-model="svcForm.name" /></el-form-item>
+      <el-form :model="svcForm" ref="svcFormRef" label-width="80px" :rules="svcRules">
+        <el-form-item label="标识" prop="identifier" required><el-input v-model="svcForm.identifier" :disabled="!!svcForm.id" /></el-form-item>
+        <el-form-item label="名称" prop="name" required><el-input v-model="svcForm.name" /></el-form-item>
         <el-form-item label="调用类型"><el-select v-model="svcForm.callType"><el-option value="ASYNC" /><el-option value="SYNC" /></el-select></el-form-item>
         <el-form-item label="描述"><el-input v-model="svcForm.description" /></el-form-item>
       </el-form>
@@ -70,9 +70,9 @@
 
     <!-- 事件弹窗 -->
     <el-dialog :title="evtForm.id ? '编辑事件' : '新增事件'" v-model="evtDialog" width="500px">
-      <el-form :model="evtForm" ref="evtFormRef" label-width="80px">
-        <el-form-item label="标识"><el-input v-model="evtForm.identifier" :disabled="!!evtForm.id" /></el-form-item>
-        <el-form-item label="名称"><el-input v-model="evtForm.name" /></el-form-item>
+      <el-form :model="evtForm" ref="evtFormRef" label-width="80px" :rules="evtRules">
+        <el-form-item label="标识" prop="identifier" required><el-input v-model="evtForm.identifier" :disabled="!!evtForm.id" /></el-form-item>
+        <el-form-item label="名称" prop="name" required><el-input v-model="evtForm.name" /></el-form-item>
         <el-form-item label="类型"><el-select v-model="evtForm.type"><el-option v-for="t in ['INFO','ALERT','ERROR']" :key="t" :value="t" /></el-select></el-form-item>
         <el-form-item label="描述"><el-input v-model="evtForm.description" /></el-form-item>
       </el-form>
@@ -87,9 +87,9 @@ import PageContainer from '@/components/common/PageContainer.vue'
 import * as api from '@/api/thingModel'
 import { getProductById } from '@/api/product'
 import type * as T from '@/types/thingModel'
-
+import { ElMessage } from 'element-plus'
 const route = useRoute()
-const productId = Number(route.query.productId)
+const productId = route.query.productId as string
 const productName = ref('')
 const activeTab = ref('attributes')
 const attributes = ref<T.ThingAttributeVO[]>([])
@@ -99,6 +99,10 @@ const events = ref<T.ThingEventVO[]>([])
 const attrDialog = ref(false), attrForm = reactive<any>({})
 const svcDialog = ref(false), svcForm = reactive<any>({})
 const evtDialog = ref(false), evtForm = reactive<any>({})
+
+const attrRules = { identifier: [{ required: true, message: '请输入标识' }], name: [{ required: true, message: '请输入名称' }] }
+const svcRules = { identifier: [{ required: true, message: '请输入标识' }], name: [{ required: true, message: '请输入名称' }] }
+const evtRules = { identifier: [{ required: true, message: '请输入标识' }], name: [{ required: true, message: '请输入名称' }] }
 
 async function fetchAll() {
   const [p] = await Promise.all([getProductById(productId).catch(() => null)])
@@ -111,16 +115,16 @@ async function refreshTab() {
   else events.value = await api.getEvents(productId)
 }
 
-function openAttrDialog(row?: T.ThingAttributeVO) { Object.assign(attrForm, row ? { ...row } : { dataType: 'DOUBLE', accessMode: 'R' }); attrDialog.value = true }
-async function saveAttr() { if (attrForm.id) await api.updateAttribute(productId, attrForm.id, attrForm); else await api.createAttribute(productId, attrForm); attrDialog.value = false; refreshTab() }
+function openAttrDialog(row?: T.ThingAttributeVO) { Object.assign(attrForm, row ? { ...row } : { id: undefined, identifier: '', name: '', dataType: 'DOUBLE', accessMode: 'R', unit: '', description: '' }); attrDialog.value = true }
+async function saveAttr() { if (attrForm.id) await api.updateAttribute(productId, attrForm.id, attrForm); else await api.createAttribute(productId, attrForm); attrDialog.value = false; ElMessage.success("保存成功"); refreshTab() }
 async function deleteAttribute(id: string) { await api.deleteAttribute(productId, id); refreshTab() }
 
-function openSvcDialog(row?: T.ThingServiceVO) { Object.assign(svcForm, row ? { ...row } : { callType: 'ASYNC' }); svcDialog.value = true }
-async function saveSvc() { if (svcForm.id) await api.updateService(productId, svcForm.id, svcForm); else await api.createService(productId, { ...svcForm, params: [] }); svcDialog.value = false; refreshTab() }
+function openSvcDialog(row?: T.ThingServiceVO) { Object.assign(svcForm, row ? { ...row } : { id: undefined, identifier: '', name: '', callType: 'ASYNC', description: '' }); svcDialog.value = true }
+async function saveSvc() { if (svcForm.id) await api.updateService(productId, svcForm.id, svcForm); else await api.createService(productId, { ...svcForm, params: [] }); svcDialog.value = false; ElMessage.success("保存成功"); refreshTab() }
 async function deleteService(id: string) { await api.deleteService(productId, id); refreshTab() }
 
-function openEvtDialog(row?: T.ThingEventVO) { Object.assign(evtForm, row ? { ...row } : { type: 'INFO' }); evtDialog.value = true }
-async function saveEvt() { if (evtForm.id) await api.updateEvent(productId, evtForm.id, evtForm); else await api.createEvent(productId, evtForm); evtDialog.value = false; refreshTab() }
+function openEvtDialog(row?: T.ThingEventVO) { Object.assign(evtForm, row ? { ...row } : { id: undefined, identifier: '', name: '', type: 'INFO', description: '' }); evtDialog.value = true }
+async function saveEvt() { if (evtForm.id) await api.updateEvent(productId, evtForm.id, evtForm); else await api.createEvent(productId, evtForm); evtDialog.value = false; ElMessage.success("保存成功"); refreshTab() }
 async function deleteEvent(id: string) { await api.deleteEvent(productId, id); refreshTab() }
 
 onMounted(fetchAll)

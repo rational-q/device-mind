@@ -33,6 +33,8 @@ export interface ChatResponse {
   success: boolean
   errorMsg?: string
   answer: string
+  /** 会话ID（后端返回，前端持久化以维持多轮上下文） */
+  sessionId?: string
   toolsCalled: string[]
   pendingAction?: {
     action: string
@@ -43,22 +45,4 @@ export interface ChatResponse {
     message: string
   } | null
   rawResponse?: string
-}
-
-/** @deprecated 已收敛到 /chat，保留类型兼容旧代码 */
-export interface Nl2SqlRequest {
-  question: string
-  productKey?: string
-  deviceId?: string
-  execute?: boolean
-}
-
-/** @deprecated 已收敛到 /chat */
-export interface Nl2SqlResponse {
-  success: boolean
-  errorMsg?: string
-  sql?: string
-  explanation?: string
-  results?: Record<string, any>[]
-  resultCount?: number
 }

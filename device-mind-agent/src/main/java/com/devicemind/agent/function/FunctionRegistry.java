@@ -43,7 +43,7 @@ public class FunctionRegistry {
         FunctionHandler handler = handlers.get(name);
         if (handler == null) {
             log.warn("未注册的函数调用: {}", name);
-            return "{\"error\":\"未知函数: " + name + "\"}";
+            return FunctionHandler.errorJson("未知函数: " + name);
         }
         try {
             String result = handler.execute(argsJson);
@@ -51,7 +51,7 @@ public class FunctionRegistry {
             return result;
         } catch (Exception e) {
             log.error("函数执行失败: name={}, args={}", name, argsJson, e);
-            return "{\"error\":\"函数执行异常: " + e.getMessage() + "\"}";
+            return FunctionHandler.errorJson("函数执行异常: " + e.getMessage());
         }
     }
 }
