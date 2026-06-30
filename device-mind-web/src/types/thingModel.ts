@@ -1,5 +1,5 @@
 export interface ThingAttributeVO {
-  id: number
+  id: string
   productId: number
   identifier: string
   name: string
@@ -27,7 +27,7 @@ export interface ThingAttributeUpdateDTO {
 }
 
 export interface ThingServiceVO {
-  id: number
+  id: string
   productId: number
   identifier: string
   name: string
@@ -37,7 +37,7 @@ export interface ThingServiceVO {
 }
 
 export interface ThingServiceParamVO {
-  id: number
+  id: string
   serviceId: number
   identifier: string
   name: string
@@ -71,7 +71,7 @@ export interface ThingServiceUpdateDTO {
 }
 
 export interface ThingEventVO {
-  id: number
+  id: string
   productId: number
   identifier: string
   name: string

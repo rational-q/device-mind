@@ -1,5 +1,5 @@
 export interface CommandLogVO {
-  id: number
+  id: string
   deviceId: string
   command: string
   params: string

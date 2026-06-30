@@ -1,5 +1,5 @@
 export interface AlertVO {
-  id: number
+  id: string
   deviceId: string
   ruleId: number
   ruleName: string
@@ -25,7 +25,7 @@ export interface AlertPageQueryDTO {
 }
 
 export interface AlertRuleVO {
-  id: number
+  id: string
   ruleName: string
   deviceType: string
   attrName: string

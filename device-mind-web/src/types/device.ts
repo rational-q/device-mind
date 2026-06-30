@@ -1,5 +1,5 @@
 export interface DeviceVO {
-  id: number
+  id: string
   deviceId: string
   productId: number
   productName: string

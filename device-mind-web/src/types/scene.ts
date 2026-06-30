@@ -1,5 +1,5 @@
 export interface SceneVO {
-  id: number
+  id: string
   name: string
   description: string
   productId: number
@@ -26,7 +26,7 @@ export interface SceneUpdateDTO {
 }
 
 export interface SceneLogVO {
-  id: number
+  id: string
   sceneId: number
   sceneName: string
   deviceId: string

@@ -1,5 +1,5 @@
 export interface ProductVO {
-  id: number
+  id: string
   productKey: string
   name: string
   description: string
