@@ -85,7 +85,7 @@
 <script setup lang="ts">
 import PageContainer from '@/components/common/PageContainer.vue'
 import { getSceneList, createScene, updateScene, deleteScene, toggleScene, getSceneLogList } from '@/api/scene'
-import { getProductList } from '@/api/product' from '@/api/scene'
+import { getProductList } from '@/api/product'
 import { formatDateTime } from '@/utils/date'
 import { SCENE_STATUS_MAP } from '@/utils/constants'
 import type { SceneVO, SceneLogVO } from '@/types/scene'

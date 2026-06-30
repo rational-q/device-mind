@@ -154,7 +154,7 @@ public class AnalysisBusiness implements IAnalysisBusiness {
                 .success(true)
                 .answer(rawResponse)
                 .toolsCalled(toolsCalled)
-                .pendingAction(pendingAction)
+                .pendingAction(pendingAction.isEmpty() ? null : pendingAction)
                 .rawResponse(rawResponse)
                 .build();
     }
