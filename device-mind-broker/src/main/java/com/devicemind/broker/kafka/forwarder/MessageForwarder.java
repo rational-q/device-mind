@@ -76,7 +76,11 @@ public class MessageForwarder {
                 }
             });
         } catch (Exception e) {
-            messageStore.markFailed(messageId);
+            try {
+                messageStore.markFailed(messageId);
+            } catch (Exception fallbackEx) {
+                log.error("标记消息 FAILED 状态失败，消息可能无法自动补偿，请人工介入！messageId={}", messageId, fallbackEx);
+            }
             log.error("Kafka 转发异常: messageId={}, topic={}", messageId, mqttTopic, e);
         }
     }

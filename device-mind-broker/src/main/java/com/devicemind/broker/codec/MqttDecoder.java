@@ -52,6 +52,9 @@ public class MqttDecoder extends ByteToMessageDecoder {
             }
             encodedByte = in.readUnsignedByte();
             remainingLength += (encodedByte & 127) * multiplier;
+            if (multiplier > 128 * 128 * 128) {
+                throw new IllegalArgumentException("Remaining Length 溢出");
+            }
             multiplier *= 128;
             bytesRead++;
             if (bytesRead > 4) {

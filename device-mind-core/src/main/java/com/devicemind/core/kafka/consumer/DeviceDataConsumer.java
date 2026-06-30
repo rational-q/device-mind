@@ -3,6 +3,7 @@ package com.devicemind.core.kafka.consumer;
 import com.devicemind.common.exception.KafkaConsumeFailedException;
 import com.devicemind.common.kafka.model.DeviceDataPoint;
 import com.devicemind.core.model.dto.DeviceDataRequest;
+import com.devicemind.core.support.DeviceDataWebSocketHandler;
 import com.devicemind.core.support.DeviceSupport;
 import com.devicemind.core.processor.DeviceDataProcessor;
 import com.devicemind.common.utils.JsonUtil;
@@ -42,7 +43,7 @@ public class DeviceDataConsumer {
     private final Map<String, DeviceDataProcessor> processorMap = new ConcurrentHashMap<>();
 
     @Autowired
-    private com.devicemind.core.support.DeviceDataWebSocketHandler webSocketHandler;
+    private DeviceDataWebSocketHandler webSocketHandler;
 
     @Autowired
     public void setProcessors(List<DeviceDataProcessor> processors) {
