@@ -3,21 +3,21 @@ import type { ProductVO, ProductCreateDTO, ProductUpdateDTO, ProductPageQueryDTO
 import type { PageResult } from '@/types/api'
 
 export function getProductList(data: ProductPageQueryDTO) {
-  return request.post<any, PageResult<ProductVO>>('/device-mind/products/list', data)
+  return request.post<any, PageResult<ProductVO>>('/device-mind/core/products/list', data)
 }
 
 export function getProductById(id: number) {
-  return request.get<any, ProductVO>('/device-mind/products/detail', { params: { id } })
+  return request.get<any, ProductVO>('/device-mind/core/products/detail', { params: { id } })
 }
 
 export function createProduct(data: ProductCreateDTO) {
-  return request.post('/device-mind/products', data)
+  return request.post('/device-mind/core/products', data)
 }
 
 export function updateProduct(id: number, data: ProductUpdateDTO) {
-  return request.put('/device-mind/products', data, { params: { id } })
+  return request.put('/device-mind/core/products', data, { params: { id } })
 }
 
 export function deleteProduct(id: number) {
-  return request.delete('/device-mind/products', { params: { id } })
+  return request.delete('/device-mind/core/products', { params: { id } })
 }

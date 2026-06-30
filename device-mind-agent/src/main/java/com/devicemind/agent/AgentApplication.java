@@ -1,8 +1,11 @@
 package com.devicemind.agent;
 
+import com.devicemind.common.config.SwaggerConfig;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Import;
 
+@Import(SwaggerConfig.class)
 @SpringBootApplication
 public class AgentApplication {
 

@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 设备认证服务 — 维护已注册设备白名单
  * <p>
- * 启动时从 Core 拉取全量设备列表，运行中通过 Core 通知增删。
+ * 启动时从 Core REST 拉取全量设备列表，运行中通过 Kafka device-lifecycle 增删。
  */
 @Slf4j
 @Service
@@ -33,51 +33,68 @@ public class DeviceAuthService {
     }
 
     /**
-     * 启动时从 Core 同步全量设备列表
+     * 启动时从 Core 同步全量设备列表（带重试 + 指数退避）
      */
     @PostConstruct
     public void syncFromCore() {
-        try {
-            log.info("启动时从 Core 同步设备列表...");
-            // Core 的 list 接口返回分页数据，循环拉取所有设备
-            int page = 1;
-            int total = 0;
-            do {
-                Map<String, Object> body = Map.of("pageNum", page, "pageSize", 1000);
-                Map<String, Object> resp = restTemplate.postForObject(
-                        coreUrl + "/device-mind/devices/list", body, Map.class);
-                if (resp == null) break;
-
-                Object recordsObj = resp.get("records");
-                if (recordsObj instanceof List<?> records) {
-                    for (Object r : records) {
-                        if (r instanceof Map<?, ?> device) {
-                            Object deviceId = device.get("deviceId");
-                            if (deviceId != null) {
-                                registeredDevices.add(deviceId.toString());
-                            }
-                        }
+        int maxRetries = 5;
+        long backoffMs = 1000;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                log.info("从 Core 同步设备列表（第 {} 次尝试）...", attempt);
+                doSync();
+                log.info("设备列表同步完成，共 {} 台设备", registeredDevices.size());
+                return;
+            } catch (Exception e) {
+                log.warn("从 Core 同步设备列表失败（{}/{}）: {}", attempt, maxRetries, e.getMessage());
+                if (attempt < maxRetries) {
+                    try {
+                        Thread.sleep(backoffMs);
+                        backoffMs *= 2;
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
                     }
-                    total = records.size();
-                    page++;
-                } else {
-                    break;
                 }
-            } while (total >= 1000);
-
-            log.info("设备列表同步完成，共 {} 台设备", registeredDevices.size());
-        } catch (Exception e) {
-            log.warn("从 Core 同步设备列表失败，设备认证功能受限: {}", e.getMessage());
+            }
         }
+        log.error("从 Core 同步设备列表最终失败，设备认证功能受限");
     }
 
-    /** 注册设备 */
+    private void doSync() {
+        int page = 1;
+        int total;
+        do {
+            Map<String, Object> body = Map.of("pageNum", page, "pageSize", 1000);
+            Map<String, Object> resp = restTemplate.postForObject(
+                    coreUrl + "/device-mind/core/devices/list", body, Map.class);
+            if (resp == null) break;
+
+            Object recordsObj = resp.get("records");
+            if (recordsObj instanceof List<?> records) {
+                for (Object r : records) {
+                    if (r instanceof Map<?, ?> device) {
+                        Object deviceId = device.get("deviceId");
+                        if (deviceId != null) {
+                            registeredDevices.add(deviceId.toString());
+                        }
+                    }
+                }
+                total = records.size();
+                page++;
+            } else {
+                break;
+            }
+        } while (total >= 1000);
+    }
+
+    /** 注册设备（由 Kafka device-lifecycle 消费者调用） */
     public void register(String deviceId) {
         registeredDevices.add(deviceId);
         log.debug("设备已注册: deviceId={}, 总数={}", deviceId, registeredDevices.size());
     }
 
-    /** 注销设备 */
+    /** 注销设备（由 Kafka device-lifecycle 消费者调用） */
     public void unregister(String deviceId) {
         registeredDevices.remove(deviceId);
         log.debug("设备已注销: deviceId={}, 总数={}", deviceId, registeredDevices.size());
@@ -96,23 +113,5 @@ public class DeviceAuthService {
     /** 获取所有已注册设备ID */
     public List<String> getAllDeviceIds() {
         return List.copyOf(registeredDevices);
-    }
-
-    /** 批量注册（用于Core同步） */
-    public void registerAll(List<String> deviceIds) {
-        registeredDevices.addAll(deviceIds);
-    }
-
-    /**
-     * 通知 Core 更新设备在线状态
-     */
-    public void notifyStatusChange(String deviceId, String status) {
-        try {
-            String url = coreUrl + "/device-mind/devices/online-status?deviceId=" + deviceId + "&status=" + status;
-            restTemplate.put(url, null);
-            log.debug("已通知 Core 更新设备状态: deviceId={}, status={}", deviceId, status);
-        } catch (Exception e) {
-            log.warn("通知 Core 更新状态失败: deviceId={}, status={}", deviceId, status, e);
-        }
     }
 }

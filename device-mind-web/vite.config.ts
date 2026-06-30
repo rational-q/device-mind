@@ -24,11 +24,12 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/device-mind': {
+      '/device-mind/core': {
         target: 'http://localhost:8080',
         changeOrigin: true,
+        ws: true,
       },
-      '/api/v1': {
+      '/device-mind/agent': {
         target: 'http://localhost:8081',
         changeOrigin: true,
       }

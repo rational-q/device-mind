@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/devicemind_ts
+    username: mac
+    password:
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: agent-tsdb-pool
+      maximum-pool-size: 3
+      minimum-idle: 0
+      connection-timeout: 5000
+      idle-timeout: 300000
+      max-lifetime: 600000
+
+deepseek:
+  api:
+    url: https://api.deepseek.com
+    key:
+    timeout: 30
+
+core-service:
+  url: http://localhost:8080
+
+logging:
+  level:
+    com.devicemind.agent: DEBUG

@@ -1,7 +1,7 @@
 import request from './request'
 import type * as T from '@/types/thingModel'
 
-const BASE = '/device-mind/things'
+const BASE = '/device-mind/core/things'
 
 export function getAttributes(productId: number) {
   return request.get<any, T.ThingAttributeVO[]>(`${BASE}/attributes`, { params: { productId } })

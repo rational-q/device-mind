@@ -22,6 +22,28 @@ export interface AlertAnalysisResponse {
   rawResponse?: string
 }
 
+export interface ChatRequest {
+  question: string
+  deviceId?: string
+}
+
+export interface ChatResponse {
+  success: boolean
+  errorMsg?: string
+  answer: string
+  toolsCalled: string[]
+  pendingAction?: {
+    action: string
+    status: string
+    deviceId: string
+    command: string
+    params?: Record<string, any>
+    message: string
+  } | null
+  rawResponse?: string
+}
+
+/** @deprecated 已收敛到 /chat，保留类型兼容旧代码 */
 export interface Nl2SqlRequest {
   question: string
   productKey?: string
@@ -29,6 +51,7 @@ export interface Nl2SqlRequest {
   execute?: boolean
 }
 
+/** @deprecated 已收敛到 /chat */
 export interface Nl2SqlResponse {
   success: boolean
   errorMsg?: string

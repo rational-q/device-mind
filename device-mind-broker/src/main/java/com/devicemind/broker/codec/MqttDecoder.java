@@ -98,9 +98,7 @@ public class MqttDecoder extends ByteToMessageDecoder {
             case PINGREQ:
                 return new PingReqMessage();
             case DISCONNECT:
-                MqttMessage disconnectMsg = new MqttMessage() {};
-                disconnectMsg.setMessageType(MqttMessageType.DISCONNECT);
-                return disconnectMsg;
+                return new DisconnectMessage();
             default:
                 log.warn("暂不支持的报文类型: {}", type);
                 return null;
@@ -138,6 +136,10 @@ public class MqttDecoder extends ByteToMessageDecoder {
         byte connectFlags = payload.readByte();
         boolean hasUsername = (connectFlags & 0x80) != 0;
         boolean hasPassword = (connectFlags & 0x40) != 0;
+        boolean hasWill = (connectFlags & 0x04) != 0;
+
+        // Clean Session 标志位：bit 1，0 = 保留会话，1 = 清除会话
+        msg.setCleanSession((connectFlags & 0x02) != 0);
 
         // Keep Alive
         if (payload.readableBytes() < 2) {
@@ -156,6 +158,28 @@ public class MqttDecoder extends ByteToMessageDecoder {
         byte[] clientIdBytes = new byte[clientIdLen];
         payload.readBytes(clientIdBytes);
         msg.setClientId(new String(clientIdBytes, StandardCharsets.UTF_8));
+
+        // Will Topic（Will Flag=1 时存在，当前忽略内容）
+        if (hasWill) {
+            if (payload.readableBytes() < 2) {
+                throw new IllegalArgumentException("Will Topic 长度字段需要2字节，剩余：" + payload.readableBytes());
+            }
+            int willTopicLen = payload.readUnsignedShort();
+            if (payload.readableBytes() < willTopicLen) {
+                throw new IllegalArgumentException("Will Topic 内容需要" + willTopicLen + "字节，剩余：" + payload.readableBytes());
+            }
+            payload.skipBytes(willTopicLen);
+
+            // Will Message
+            if (payload.readableBytes() < 2) {
+                throw new IllegalArgumentException("Will Message 长度字段需要2字节，剩余：" + payload.readableBytes());
+            }
+            int willMsgLen = payload.readUnsignedShort();
+            if (payload.readableBytes() < willMsgLen) {
+                throw new IllegalArgumentException("Will Message 内容需要" + willMsgLen + "字节，剩余：" + payload.readableBytes());
+            }
+            payload.skipBytes(willMsgLen);
+        }
 
         // 用户名
         if (hasUsername) {

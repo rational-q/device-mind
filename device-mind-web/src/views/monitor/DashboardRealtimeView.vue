@@ -114,20 +114,28 @@ const chartOption = computed(() => ({
 // WebSocket 连接
 const wsConnected = ref(false)
 let ws: WebSocket | null = null
+let pingTimer: ReturnType<typeof setInterval> | null = null
 let dataPointCount = 0
 let lastStatReset = Date.now()
 
 function connectWebSocket() {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-  ws = new WebSocket(protocol + '//' + location.host + '/ws/monitor')
+  ws = new WebSocket(protocol + '//' + location.host + '/device-mind/core/ws/monitor')
 
   ws.onopen = () => {
     wsConnected.value = true
     console.log('WebSocket 已连接')
+    // 每30秒发送心跳，防止代理/负载均衡断开空闲连接
+    pingTimer = setInterval(() => {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send('ping')
+      }
+    }, 30000)
   }
 
   ws.onclose = () => {
     wsConnected.value = false
+    if (pingTimer) { clearInterval(pingTimer); pingTimer = null }
     console.log('WebSocket 断开，3秒后重连')
     setTimeout(connectWebSocket, 3000)
   }
@@ -193,7 +201,10 @@ onMounted(async () => {
   connectWebSocket()
 })
 
-onUnmounted(() => { ws?.close() })
+onUnmounted(() => {
+  if (pingTimer) { clearInterval(pingTimer); pingTimer = null }
+  ws?.close()
+})
 
 function formatTime(ts: number) {
   return new Date(ts).toLocaleTimeString()

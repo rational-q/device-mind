@@ -1,7 +1,7 @@
 package com.devicemind.core.client;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.devicemind.core.model.entity.DmAlert;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -16,10 +16,10 @@ import java.util.Map;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class AlertAnalysisClient {
 
-    private final RestTemplate restTemplate;
+    @Autowired
+    private RestTemplate restTemplate;
 
     @Value("${agent-service.url:http://localhost:8081}")
     private String agentUrl;
@@ -43,7 +43,7 @@ public class AlertAnalysisClient {
             );
 
             Map<String, Object> resp = restTemplate.postForObject(
-                    agentUrl + "/api/v1/analysis/alert",
+                    agentUrl + "/device-mind/agent/analysis/alert",
                     body,
                     Map.class);
 

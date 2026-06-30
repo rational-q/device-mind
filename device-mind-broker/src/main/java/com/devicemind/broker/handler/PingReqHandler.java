@@ -11,6 +11,11 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class PingReqHandler extends SimpleChannelInboundHandler<PingReqMessage> {
+
+    /** PINGRESP 报文（固定 2 字节，复用避免频繁分配） */
+    private static final ByteBuf PINGRESP = Unpooled.unreleasableBuffer(
+            Unpooled.wrappedBuffer(new byte[]{(byte) 0xD0, 0x00}));
+
     private final SessionManager sessionManager;
 
     public PingReqHandler(SessionManager sessionManager) {
@@ -23,12 +28,7 @@ public class PingReqHandler extends SimpleChannelInboundHandler<PingReqMessage> 
         TraceContext.set();
         try {
             log.debug("收到心跳 PINGREQ");
-
-            ByteBuf pingResp = Unpooled.buffer(2);
-            pingResp.writeByte(0xD0);
-            pingResp.writeByte(0x00);
-            ctx.writeAndFlush(pingResp);
-
+            ctx.writeAndFlush(PINGRESP.retainedDuplicate());
             sessionManager.updateHeartbeat(ctx.channel());
         } finally {
             TraceContext.clear();

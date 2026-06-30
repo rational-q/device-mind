@@ -1,33 +1,34 @@
 package com.devicemind.core.controller;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.devicemind.common.utils.Result;
 import com.devicemind.core.business.intf.ISceneBusiness;
 import com.devicemind.core.model.dto.SceneCreateDTO;
+import com.devicemind.core.model.dto.SceneLogPageQueryDTO;
+import com.devicemind.core.model.dto.ScenePageQueryDTO;
 import com.devicemind.core.model.dto.SceneUpdateDTO;
 import com.devicemind.core.model.vo.SceneLogVO;
 import com.devicemind.core.model.vo.SceneVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequiredArgsConstructor
-@RequestMapping("/device-mind/scenes")
+@RequestMapping("/scenes")
 @Tag(name = "场景联动", description = "场景定义与触发日志")
 public class SceneController {
 
-    private final ISceneBusiness sceneBusiness;
+    @Autowired
+    private ISceneBusiness sceneBusiness;
 
     @PostMapping("/list")
     @Operation(summary = "分页查询场景列表")
-    public Result<Page<SceneVO>> list(@RequestParam(defaultValue = "1") int pageNum,
-                                      @RequestParam(defaultValue = "10") int pageSize) {
-        return Result.ok(sceneBusiness.listPage(pageNum, pageSize));
+    public Result<Page<SceneVO>> list(@Valid @RequestBody ScenePageQueryDTO query) {
+        return Result.ok(sceneBusiness.listPage(query.getPageNum(), query.getPageSize()));
     }
 
     @GetMapping("/detail")
@@ -65,9 +66,8 @@ public class SceneController {
 
     @PostMapping("/log/list")
     @Operation(summary = "分页查询场景执行日志")
-    public Result<Page<SceneLogVO>> listLog(@RequestParam(required = false) Long sceneId,
-                                            @RequestParam(defaultValue = "1") int pageNum,
-                                            @RequestParam(defaultValue = "10") int pageSize) {
-        return Result.ok(sceneBusiness.listLogPage(sceneId, pageNum, pageSize));
+    public Result<Page<SceneLogVO>> listLog(@Valid @RequestBody SceneLogPageQueryDTO query) {
+        return Result.ok(sceneBusiness.listLogPage(query.getSceneId(),
+                query.getPageNum(), query.getPageSize()));
     }
 }

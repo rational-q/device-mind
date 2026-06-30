@@ -1,15 +1,14 @@
 package com.devicemind.core.business.impl;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.devicemind.common.exception.ServiceException;
 import com.devicemind.core.business.intf.IDeviceShadowBusiness;
 import com.devicemind.core.model.dto.ShadowUpdateDTO;
 import com.devicemind.core.model.entity.DmDeviceShadow;
 import com.devicemind.core.model.vo.ShadowVO;
 import com.devicemind.core.stdsvc.intf.IDmDeviceShadowService;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
+import com.devicemind.common.utils.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,12 +18,10 @@ import java.util.Map;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class DeviceShadowBusiness implements IDeviceShadowBusiness {
 
-    private final IDmDeviceShadowService shadowService;
-    private final ObjectMapper objectMapper;
-
+    @Autowired
+    private IDmDeviceShadowService shadowService;
     @Override
     public ShadowVO getShadow(String deviceId) {
         DmDeviceShadow shadow = shadowService.getById(deviceId);
@@ -51,8 +48,8 @@ public class DeviceShadowBusiness implements IDeviceShadowBusiness {
                 ? existing.getDesiredVersion() + 1 : 1;
         String desiredJson;
         try {
-            desiredJson = objectMapper.writeValueAsString(dto.getDesired());
-        } catch (JsonProcessingException e) {
+            desiredJson = JsonUtil.toJson(dto.getDesired());
+        } catch (JsonUtil.JsonException e) {
             throw new ServiceException("期望状态序列化失败");
         }
         DmDeviceShadow shadow = new DmDeviceShadow()
@@ -70,8 +67,8 @@ public class DeviceShadowBusiness implements IDeviceShadowBusiness {
     private Map<String, Object> parseJson(String json) {
         if (json == null || json.isBlank()) return null;
         try {
-            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
-        } catch (JsonProcessingException e) {
+            return JsonUtil.fromJson(json, new TypeReference<Map<String, Object>>() {});
+        } catch (JsonUtil.JsonException e) {
             log.warn("影子 JSON 解析失败: {}", json, e);
             return null;
         }

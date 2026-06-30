@@ -1,5 +1,6 @@
 package com.devicemind.core.business.impl;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.devicemind.common.exception.ServiceException;
@@ -12,7 +13,6 @@ import com.devicemind.core.model.vo.SceneLogVO;
 import com.devicemind.core.model.vo.SceneVO;
 import com.devicemind.core.stdsvc.intf.IDmSceneLogService;
 import com.devicemind.core.stdsvc.intf.IDmSceneService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -20,11 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class SceneBusiness implements ISceneBusiness {
 
-    private final IDmSceneService sceneService;
-    private final IDmSceneLogService sceneLogService;
+    @Autowired
+    private IDmSceneService sceneService;
+    @Autowired
+    private IDmSceneLogService sceneLogService;
 
     @Override
     public Page<SceneVO> listPage(int pageNum, int pageSize) {

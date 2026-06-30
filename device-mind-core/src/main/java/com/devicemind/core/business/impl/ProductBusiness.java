@@ -1,5 +1,6 @@
 package com.devicemind.core.business.impl;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.devicemind.common.exception.ServiceException;
@@ -12,7 +13,6 @@ import com.devicemind.core.model.entity.DmProductDO;
 import com.devicemind.core.model.vo.ProductVO;
 import com.devicemind.core.stdsvc.intf.IDmDeviceService;
 import com.devicemind.core.stdsvc.intf.IDmProductService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -23,11 +23,12 @@ import java.util.List;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ProductBusiness implements IProductBusiness {
 
-    private final IDmProductService productService;
-    private final IDmDeviceService deviceService;
+    @Autowired
+    private IDmProductService productService;
+    @Autowired
+    private IDmDeviceService deviceService;
 
     @Override
     public Page<ProductVO> listPage(ProductPageQueryDTO query) {

@@ -1,20 +1,20 @@
 package com.devicemind.agent.function.handler;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.devicemind.agent.client.CoreApiClient;
 import com.devicemind.agent.function.FunctionHandler;
 import com.devicemind.agent.function.ToolDefinition;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
+import com.devicemind.common.utils.JsonUtil;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
-@RequiredArgsConstructor
 public class AlertHistoryHandler implements FunctionHandler {
 
-    private final CoreApiClient coreApiClient;
-    private final ObjectMapper objectMapper;
-
+    @Autowired
+    private CoreApiClient coreApiClient;
     @Override
     public String getFunctionName() {
         return "alertHistory";
@@ -44,7 +44,7 @@ public class AlertHistoryHandler implements FunctionHandler {
     @Override
     public String execute(String argumentsJson) {
         try {
-            JsonNode args = objectMapper.readTree(argumentsJson);
+            JsonNode args = JsonUtil.readTree(argumentsJson);
             String deviceId = args.get("deviceId").asText();
             Integer hours = args.has("hours") && !args.get("hours").isNull()
                     ? args.get("hours").asInt() : null;

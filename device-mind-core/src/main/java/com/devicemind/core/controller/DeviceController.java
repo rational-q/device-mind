@@ -1,5 +1,6 @@
 package com.devicemind.core.controller;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.devicemind.common.utils.Result;
 import com.devicemind.core.business.intf.IDeviceBusiness;
@@ -8,18 +9,17 @@ import com.devicemind.core.model.vo.DeviceVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequiredArgsConstructor
-@RequestMapping("/device-mind/devices")
+@RequestMapping("/devices")
 @Tag(name = "设备管理", description = "设备注册、查询、状态管理")
 public class DeviceController {
 
-    private final IDeviceBusiness deviceBusiness;
+    @Autowired
+    private IDeviceBusiness deviceBusiness;
 
     @PostMapping("/list")
     @Operation(summary = "分页查询设备列表")
@@ -58,13 +58,6 @@ public class DeviceController {
     @Operation(summary = "更新设备状态（按内部ID）")
     public Result<Void> updateStatus(@RequestParam Long id, @Valid @RequestBody DeviceStatusUpdateDTO dto) {
         deviceBusiness.updateStatus(id, dto);
-        return Result.ok();
-    }
-
-    @PutMapping("/online-status")
-    @Operation(summary = "更新设备在线状态（按deviceId，供Broker回调）")
-    public Result<Void> updateOnlineStatus(@RequestParam String deviceId, @RequestParam String status) {
-        deviceBusiness.updateStatusByDeviceId(deviceId, status);
         return Result.ok();
     }
 }

@@ -1,10 +1,9 @@
 version: '3.8'
 
 # ============================================================
-# DeviceMind — 一键启动全栈
+# DeviceMind — 生产环境部署
 # 使用: docker-compose up -d
-# 构建镜像: docker-compose build
-# 查看日志: docker-compose logs -f broker core
+# 查看日志: docker-compose logs -f
 # ============================================================
 
 networks:
@@ -23,8 +22,8 @@ services:
     image: mysql:8.0
     container_name: devicemind-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-devicemind}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
       TZ: Asia/Shanghai
     ports:
       - "3306:3306"
@@ -34,7 +33,7 @@ services:
     networks:
       - devicemind-net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root123}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,8 +44,8 @@ services:
     image: timescale/timescaledb:latest-pg15
     container_name: devicemind-timescaledb
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-root123}
-      POSTGRES_DB: ${POSTGRES_DB:-devicemind_ts}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
       TZ: Asia/Shanghai
     ports:
       - "5432:5432"
@@ -56,7 +55,7 @@ services:
     networks:
       - devicemind-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-devicemind_ts}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -66,7 +65,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: devicemind-redis
-    command: redis-server --requirepass ${REDIS_PASSWORD:-root123} --appendonly yes
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
     ports:
       - "6379:6379"
     volumes:
@@ -74,7 +73,7 @@ services:
     networks:
       - devicemind-net
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-root123}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -108,11 +107,17 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE: "false"
       KAFKA_LOG_RETENTION_HOURS: 72
+      KAFKA_LOG_RETENTION_BYTES: 10737418240
+      KAFKA_LOG_SEGMENT_BYTES: 536870912
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_DELETE_TOPIC_ENABLE: "true"
     ports:
@@ -130,9 +135,7 @@ services:
 
   # ==================== DeviceMind Broker (MQTT 接入) ====================
   broker:
-    build:
-      context: .
-      dockerfile: device-mind-broker/Dockerfile
+    image: ${BROKER_IMAGE}
     container_name: devicemind-broker
     depends_on:
       kafka:
@@ -141,7 +144,17 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_TOPIC_DEVICE_DATA: device-data
+      KAFKA_TOPIC_DEVICE_LIFECYCLE: ${KAFKA_TOPIC_DEVICE_LIFECYCLE:-device-lifecycle}
+      KAFKA_TOPIC_DEVICE_STATUS: ${KAFKA_TOPIC_DEVICE_STATUS:-device-status}
+      KAFKA_TOPIC_DEVICE_COMMAND: ${KAFKA_TOPIC_DEVICE_COMMAND:-device-command}
+      KAFKA_TOPIC_DEVICE_RESPONSE: ${KAFKA_TOPIC_DEVICE_RESPONSE:-device-response}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       CORE_SERVICE_URL: http://core:8080
+      BROKER_AUTH_ENABLED: ${BROKER_AUTH_ENABLED:-false}
+      BROKER_AUTH_USERNAME: ${BROKER_AUTH_USERNAME:-}
+      BROKER_AUTH_PASSWORD: ${BROKER_AUTH_PASSWORD:-}
     ports:
       - "1883:1883"
       - "1884:1884"
@@ -151,9 +164,7 @@ services:
 
   # ==================== DeviceMind Core (设备核心服务) ====================
   core:
-    build:
-      context: .
-      dockerfile: device-mind-core/Dockerfile
+    image: ${CORE_IMAGE}
     container_name: devicemind-core
     depends_on:
       mysql:
@@ -167,18 +178,21 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       MYSQL_URL: jdbc:mysql://mysql:3306/devicemind?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
-      MYSQL_USERNAME: root
-      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
+      MYSQL_USERNAME: ${MYSQL_USERNAME}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       TSDB_URL: jdbc:postgresql://timescaledb:5432/devicemind_ts
-      TSDB_USERNAME: postgres
-      TSDB_PASSWORD: ${POSTGRES_PASSWORD:-root123}
+      TSDB_USERNAME: ${TSDB_USERNAME}
+      TSDB_PASSWORD: ${TSDB_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-root123}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_TOPIC_DEVICE_DATA: device-data
+      KAFKA_TOPIC_DEVICE_LIFECYCLE: ${KAFKA_TOPIC_DEVICE_LIFECYCLE:-device-lifecycle}
+      KAFKA_TOPIC_DEVICE_STATUS: ${KAFKA_TOPIC_DEVICE_STATUS:-device-status}
+      KAFKA_TOPIC_DEVICE_COMMAND: ${KAFKA_TOPIC_DEVICE_COMMAND:-device-command}
+      KAFKA_TOPIC_DEVICE_RESPONSE: ${KAFKA_TOPIC_DEVICE_RESPONSE:-device-response}
       AGENT_SERVICE_URL: http://agent:8081
-      BROKER_SERVICE_URL: http://broker:1884
     ports:
       - "8080:8080"
     networks:
@@ -187,21 +201,19 @@ services:
 
   # ==================== DeviceMind Agent (AI Agent) ====================
   agent:
-    build:
-      context: .
-      dockerfile: device-mind-agent/Dockerfile
+    image: ${AGENT_IMAGE}
     container_name: devicemind-agent
     depends_on:
       core:
         condition: service_started
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      DEEPSEEK_API_URL: ${DEEPSEEK_API_URL:-https://api.deepseek.com}
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_API_URL: ${DEEPSEEK_API_URL}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       CORE_SERVICE_URL: http://core:8080
       TSDB_URL: jdbc:postgresql://timescaledb:5432/devicemind_ts
-      TSDB_USERNAME: postgres
-      TSDB_PASSWORD: ${POSTGRES_PASSWORD:-root123}
+      TSDB_USERNAME: ${TSDB_USERNAME}
+      TSDB_PASSWORD: ${TSDB_PASSWORD}
     ports:
       - "8081:8081"
     networks:

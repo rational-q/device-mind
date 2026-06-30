@@ -1,12 +1,12 @@
 package com.devicemind.core.business.impl;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.devicemind.common.exception.ServiceException;
 import com.devicemind.core.business.intf.IThingModelBusiness;
 import com.devicemind.core.model.dto.*;
 import com.devicemind.core.model.entity.*;
 import com.devicemind.core.model.vo.*;
 import com.devicemind.core.stdsvc.intf.*;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -19,14 +19,18 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ThingModelBusiness implements IThingModelBusiness {
 
-    private final IDmProductService productService;
-    private final IDmThingAttributeService attributeService;
-    private final IDmThingServiceService thingService;
-    private final IDmThingServiceParamService paramService;
-    private final IDmThingEventService eventService;
+    @Autowired
+    private IDmProductService productService;
+    @Autowired
+    private IDmThingAttributeService attributeService;
+    @Autowired
+    private IDmThingServiceService thingService;
+    @Autowired
+    private IDmThingServiceParamService paramService;
+    @Autowired
+    private IDmThingEventService eventService;
 
     private void checkProductExists(Long productId) {
         if (productService.getById(productId) == null) {

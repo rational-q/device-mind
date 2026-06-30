@@ -1,14 +1,16 @@
 package com.devicemind.broker.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.devicemind.broker.session.DeviceSession;
 import com.devicemind.broker.session.SessionManager;
 import com.devicemind.broker.session.SubscriptionManager;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
-import lombok.RequiredArgsConstructor;
+import com.devicemind.broker.codec.MqttEncoder;
 
 import java.util.List;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -21,11 +23,12 @@ import java.nio.charset.StandardCharsets;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class CommandService {
 
-    private final SessionManager sessionManager;
-    private final SubscriptionManager subscriptionManager;
+    @Autowired
+    private SessionManager sessionManager;
+    @Autowired
+    private SubscriptionManager subscriptionManager;
 
     /**
      * 向指定设备发送指令（直接走设备会话，不依赖订阅）
@@ -43,7 +46,11 @@ public class CommandService {
         }
 
         Channel channel = session.getChannel();
-        if (channel == null || !channel.isActive()) {
+        if (channel == null) {
+            log.warn("设备连接已断开（channel=null）: deviceId={}", deviceId);
+            return false;
+        }
+        if (!channel.isActive()) {
             log.warn("设备连接已断开: deviceId={}", deviceId);
             sessionManager.unregister(channel);
             return false;
@@ -69,19 +76,22 @@ public class CommandService {
      */
     public int publishToTopic(String topic, String payload) {
         ByteBuf packet = encodePublish(topic, payload);
-        List<Channel> subscribers = subscriptionManager.getSubscribers(topic);
+        try {
+            List<Channel> subscribers = subscriptionManager.getSubscribers(topic);
 
-        for (Channel channel : subscribers) {
-            try {
-                channel.writeAndFlush(packet.retainedDuplicate());
-            } catch (Exception e) {
-                log.warn("发布消息失败: topic={}, channel={}", topic, channel.id().asShortText(), e);
+            for (Channel channel : subscribers) {
+                try {
+                    channel.writeAndFlush(packet.retainedDuplicate());
+                } catch (Exception e) {
+                    log.warn("发布消息失败: topic={}, channel={}", topic, channel.id().asShortText(), e);
+                }
             }
-        }
-        packet.release();
 
-        log.info("主题发布完成: topic={}, subscribers={}", topic, subscribers.size());
-        return subscribers.size();
+            log.info("主题发布完成: topic={}, subscribers={}", topic, subscribers.size());
+            return subscribers.size();
+        } finally {
+            packet.release();
+        }
     }
 
     /**
@@ -109,7 +119,7 @@ public class CommandService {
         buf.writeByte(0x30);
 
         // 剩余长度变长编码
-        writeRemainingLength(buf, remainingLength);
+        MqttEncoder.writeRemainingLength(buf, remainingLength);
 
         // 主题长度 + 主题
         buf.writeShort(topicBytes.length);
@@ -121,23 +131,13 @@ public class CommandService {
         return buf;
     }
 
-    /** 计算 MQTT 剩余长度的变长编码字节数 */
+    /**
+     * 计算 MQTT 剩余长度的变长编码字节数
+     */
     private int encodedLengthSize(int length) {
         if (length < 128) return 1;
         if (length < 16384) return 2;
         if (length < 2097152) return 3;
         return 4;
-    }
-
-    /** 写入 MQTT 变长编码的剩余长度 */
-    private void writeRemainingLength(ByteBuf buf, int length) {
-        do {
-            int digit = length % 128;
-            length /= 128;
-            if (length > 0) {
-                digit |= 0x80;
-            }
-            buf.writeByte(digit);
-        } while (length > 0);
     }
 }

@@ -1,6 +1,8 @@
 package com.devicemind.core.model.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.experimental.Accessors;
@@ -15,6 +17,7 @@ import java.util.Date;
 @TableName("dm_scene_log")
 public class DmSceneLog {
 
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     @TableField("SCENE_ID")

@@ -40,7 +40,11 @@
         <el-form-item label="描述">
           <el-input v-model="form.description" placeholder="场景描述" type="textarea" :rows="2" />
         </el-form-item>
-        <el-form-item label="触发条件" prop="conditions">
+        <el-form-item label="产品" prop="productId">
+          <el-select v-model="form.productId" placeholder="选择产品" style="width:100%">
+            <el-option v-for="p in productOptions" :key="p.id" :label="p.name" :value="p.id" />
+          </el-select>
+        </el-form-item>        <el-form-item label="触发条件" prop="conditions">
           <el-input v-model="form.conditions" type="textarea" :rows="4"
             placeholder='[{"attr":"temperature","operator":">","value":40,"duration":30}]' />
           <div style="color:#909399;font-size:12px;margin-top:4px">条件JSON: attr=属性名, operator=运算符(&gt; &lt; &gt;= &lt;= ==), value=阈值, duration=持续秒数</div>
@@ -81,6 +85,7 @@
 <script setup lang="ts">
 import PageContainer from '@/components/common/PageContainer.vue'
 import { getSceneList, createScene, updateScene, deleteScene, toggleScene, getSceneLogList } from '@/api/scene'
+import { getProductList } from '@/api/product' from '@/api/scene'
 import { formatDateTime } from '@/utils/date'
 import { SCENE_STATUS_MAP } from '@/utils/constants'
 import type { SceneVO, SceneLogVO } from '@/types/scene'
@@ -102,7 +107,7 @@ const isEdit = ref(false)
 const editId = ref(0)
 const saving = ref(false)
 const formRef = ref()
-const form = reactive({ name: '', description: '', conditions: '', actions: '' })
+const form = reactive({ name: '', description: '', productId: null as number | null, conditions: '', actions: '' })
 const rules = { name: [{ required: true, message: '请输入场景名称' }], conditions: [{ required: true, message: '请填写触发条件' }], actions: [{ required: true, message: '请填写执行动作' }] }
 
 function openCreate() {
@@ -123,7 +128,7 @@ async function handleSave() {
   if (!valid) return
   saving.value = true
   try {
-    if (isEdit.value) { await updateScene(editId.value, form) } else { await createScene(form as any) }
+    if (isEdit.value) { await updateScene(editId.value, form) } else { await createScene(form) }
     ElMessage.success(isEdit.value ? '更新成功' : '创建成功')
     dialogVisible.value = false; fetchData()
   } finally { saving.value = false }
@@ -139,7 +144,8 @@ const logData = ref<SceneLogVO[]>([])
 const logTotal = ref(0)
 const logLoading = ref(false)
 const logQuery = reactive({ sceneId: null as number | null, pageNum: 1, pageSize: 10 })
-
+const productOptions = ref<{ id: number; name: string }[]>([])
+onMounted(async () => { const res = await getProductList({ pageSize: 100 }); productOptions.value = res.records })
 async function viewLogs(row: SceneVO) {
   currentSceneName.value = row.name
   logQuery.sceneId = row.id; logQuery.pageNum = 1

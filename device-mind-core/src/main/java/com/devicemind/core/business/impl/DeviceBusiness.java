@@ -1,41 +1,44 @@
 package com.devicemind.core.business.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.devicemind.common.enums.DeviceStatus;
 import com.devicemind.common.exception.ServiceException;
+import com.devicemind.common.kafka.producer.DeviceLifecycleProducer;
 import com.devicemind.core.business.intf.IDeviceBusiness;
 import com.devicemind.core.model.dto.*;
 import com.devicemind.core.model.entity.DmDevice;
 import com.devicemind.core.model.entity.DmProductDO;
 import com.devicemind.core.model.vo.DeviceVO;
-import com.devicemind.core.persistence.mapper.mysql.DmDeviceMapper;
+import com.devicemind.core.persistence.dao.mysql.DeviceDao;
 import com.devicemind.core.stdsvc.intf.IDmDeviceService;
 import com.devicemind.core.stdsvc.intf.IDmProductService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class DeviceBusiness implements IDeviceBusiness {
 
-    private final IDmDeviceService deviceService;
-    private final IDmProductService productService;
-    private final DmDeviceMapper deviceMapper;
-    private final com.devicemind.core.client.BrokerRegistryClient brokerRegistryClient;
-    private final com.devicemind.core.service.CommandRetryService commandRetryService;
-    private final com.devicemind.core.service.SmsService smsService;
+    @Autowired
+    private IDmDeviceService deviceService;
+    @Autowired
+    private IDmProductService productService;
+        @Autowired
+    private DeviceDao deviceDao;
+    @Autowired
+    private DeviceLifecycleProducer lifecycleProducer;
+    @Autowired
+    private com.devicemind.core.support.CommandRetrySupport commandRetryService;
+    @Autowired
+    private com.devicemind.core.support.SmsSupport smsService;
 
     @Value("${device.offline.alert-phone:}")
     private String offlineAlertPhone;
@@ -43,7 +46,7 @@ public class DeviceBusiness implements IDeviceBusiness {
     @Override
     public Page<DeviceVO> listPage(DevicePageQueryDTO query) {
         Page<DeviceVO> page = Page.of(query.getPageNum(), query.getPageSize());
-        IPage<DeviceVO> result = deviceMapper.selectDevicePage(
+        IPage<DeviceVO> result = deviceDao.selectDevicePage(
                 page, query.getDeviceId(), query.getProductId(), query.getStatus());
         // 如果返回的产品名称为空（LEFT JOIN 无匹配），兜底填充未知
         result.getRecords().forEach(vo -> {
@@ -84,11 +87,11 @@ public class DeviceBusiness implements IDeviceBusiness {
         }
         DmDevice entity = new DmDevice();
         BeanUtils.copyProperties(dto, entity);
-        entity.setStatus("OFFLINE");
+        entity.setStatus(DeviceStatus.OFFLINE.name());
         deviceService.save(entity);
 
-        // 通知 Broker 注册设备
-        brokerRegistryClient.register(dto.getDeviceId());
+        // 通知 Broker 注册设备（Kafka）
+        lifecycleProducer.register(dto.getDeviceId());
     }
 
     @Override
@@ -111,8 +114,8 @@ public class DeviceBusiness implements IDeviceBusiness {
         }
         deviceService.removeById(id);
 
-        // 通知 Broker 注销设备
-        brokerRegistryClient.unregister(device.getDeviceId());
+        // 通知 Broker 注销设备（Kafka）
+        lifecycleProducer.unregister(device.getDeviceId());
     }
 
     @Override
@@ -128,19 +131,19 @@ public class DeviceBusiness implements IDeviceBusiness {
         DmDevice update = new DmDevice();
         update.setId(device.getId());
         update.setStatus(status);
-        if ("ONLINE".equals(status)) {
+        if (DeviceStatus.isOnline(status)) {
             update.setLastOnlineTime(new Date());
         }
         deviceService.updateById(update);
         log.info("设备状态更新: deviceId={}, old={}→new={}", deviceId, device.getStatus(), status);
 
         // 设备上线时投递待发送指令
-        if ("ONLINE".equals(status)) {
+        if (DeviceStatus.isOnline(status)) {
             commandRetryService.deliverPendingCommands(deviceId);
         }
 
         // 设备无故掉线 → 短信通知
-        if ("OFFLINE".equals(status) && "ONLINE".equals(device.getStatus())) {
+        if (DeviceStatus.isOffline(status) && DeviceStatus.isOnline(device.getStatus())) {
             if (offlineAlertPhone != null && !offlineAlertPhone.isBlank()) {
                 smsService.send(List.of(offlineAlertPhone),
                         "【DeviceMind】设备离线告警: " + deviceId
@@ -160,7 +163,7 @@ public class DeviceBusiness implements IDeviceBusiness {
         DmDevice update = new DmDevice();
         update.setId(id);
         update.setStatus(dto.getStatus());
-        if ("ONLINE".equals(dto.getStatus())) {
+        if (DeviceStatus.isOnline(dto.getStatus())) {
             update.setLastOnlineTime(new Date());
         }
         deviceService.updateById(update);

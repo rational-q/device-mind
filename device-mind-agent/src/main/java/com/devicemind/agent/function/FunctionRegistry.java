@@ -1,7 +1,7 @@
 package com.devicemind.agent.function;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.devicemind.common.utils.JsonUtil;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
  * 函数注册中心
  * <p>
  * 自动收集所有 {@link FunctionHandler} Bean，按名称索引。
- * 被 {@link com.devicemind.agent.service.AlertAnalysisService} 使用。
+ * 被 {@link com.devicemind.agent.business.impl.AnalysisBusiness} 使用。
  */
 @Slf4j
 @Component
@@ -24,12 +24,7 @@ public class FunctionRegistry {
 
     @Getter
     private final List<ToolDefinition> toolDefinitions;
-
-    private final ObjectMapper objectMapper;
-
-    public FunctionRegistry(List<FunctionHandler> handlerList, ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-        this.handlers = handlerList.stream()
+    public FunctionRegistry(List<FunctionHandler> handlerList) {        this.handlers = handlerList.stream()
                 .collect(Collectors.toMap(FunctionHandler::getFunctionName, h -> h));
         this.toolDefinitions = handlerList.stream()
                 .map(FunctionHandler::getToolDefinition)

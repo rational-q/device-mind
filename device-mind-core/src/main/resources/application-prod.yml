@@ -30,26 +30,31 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD}
       timeout: 3000
-      lettuce:
-        pool:
-          max-active: 50
-          max-idle: 10
-          min-idle: 5
-          max-wait: 3000
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     consumer:
       auto-offset-reset: latest
 
+redisson:
+  connection-pool-size: 64
+  connection-minimum-idle-size: 16
+  retry-attempts: 5
+  retry-interval: 1500
+  dns-monitoring-interval: 5000
+
 kafka:
+  topic:
+    replicas: 3
+    min-isr: 2
   topics:
     device-data: ${KAFKA_TOPIC_DEVICE_DATA}
-
+    device-lifecycle: ${KAFKA_TOPIC_DEVICE_LIFECYCLE}
+    device-status: ${KAFKA_TOPIC_DEVICE_STATUS}
+    device-command: ${KAFKA_TOPIC_DEVICE_COMMAND}
+    device-response: ${KAFKA_TOPIC_DEVICE_RESPONSE}
 agent-service:
   url: ${AGENT_SERVICE_URL}
 
-broker-service:
-  url: ${BROKER_SERVICE_URL}
 
 device:
   offline:

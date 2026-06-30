@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.devicemind.core.persistence.dao.mysql.CommandLogDao">
+
+    <select id="selectCommandLogPage" resultType="com.devicemind.core.model.vo.CommandLogVO">
+        SELECT ID,
+               DEVICE_ID       AS deviceId,
+               COMMAND         AS command,
+               PARAMS          AS params,
+               IDEMPOTENCY_KEY AS idempotencyKey,
+               STATUS          AS status,
+               RETRY_COUNT     AS retryCount,
+               MAX_RETRIES     AS maxRetries,
+               ACKED_AT        AS ackedAt,
+               CREATED_DATE    AS createdDate
+        FROM dm_command_log
+        <where>
+            <if test="deviceId != null and deviceId != ''">
+                AND DEVICE_ID LIKE CONCAT('%', #{deviceId}, '%')
+            </if>
+            <if test="command != null and command != ''">
+                AND COMMAND LIKE CONCAT('%', #{command}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                AND STATUS = #{status}
+            </if>
+        </where>
+        ORDER BY CREATED_DATE DESC
+    </select>
+
+</mapper>
