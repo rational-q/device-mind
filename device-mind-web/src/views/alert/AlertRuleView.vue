@@ -60,7 +60,7 @@ async function fetchData() { loading.value = true; try { const res = await getAl
 function openDialog(row?: AlertRuleVO) { if (row) Object.assign(form, row); else Object.assign(form, { id: null, ruleName: '', deviceType: '', attrName: '', operator: '>', threshold: 0, durationSeconds: 60, level: 'WARN', enabled: true }); dialogVisible.value = true }
 async function handleSave() { if (form.id) await updateAlertRule(form.id, form); else await createAlertRule(form); dialogVisible.value = false; fetchData() }
 async function handleDelete(id: string) { await deleteAlertRule(id); fetchData() }
-async function toggleRule(id: number) { await toggleAlertRule(id); fetchData() }
+async function toggleRule(id: string) { await toggleAlertRule(id); fetchData() }
 
 onMounted(fetchData)
 </script>

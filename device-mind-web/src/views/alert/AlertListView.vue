@@ -44,8 +44,8 @@ const loading = ref(false)
 
 async function fetchData() { loading.value = true; try { const res = await getAlertList(query); tableData.value = res.records; total.value = res.total } finally { loading.value = false } }
 function resetQuery() { Object.assign(query, { deviceId: '', level: '', status: '', pageNum: 1 }); fetchData() }
-async function confirmAlert(id: number) { await confirmApi(id); fetchData() }
-async function resolveAlert(id: number) { await resolveApi(id); fetchData() }
+async function confirmAlert(id: string) { await confirmApi(id); fetchData() }
+async function resolveAlert(id: string) { await resolveApi(id); fetchData() }
 
 onMounted(fetchData)
 </script>

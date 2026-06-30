@@ -14,7 +14,7 @@ export function createScene(data: SceneCreateDTO) {
   return request.post<any, number>('/device-mind/core/scenes', data)
 }
 
-export function updateScene(id: number, data: SceneUpdateDTO) {
+export function updateScene(id: string, data: SceneUpdateDTO) {
   return request.put('/device-mind/core/scenes', data, { params: { id } })
 }
 

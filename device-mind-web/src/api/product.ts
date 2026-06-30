@@ -14,7 +14,7 @@ export function createProduct(data: ProductCreateDTO) {
   return request.post('/device-mind/core/products', data)
 }
 
-export function updateProduct(id: number, data: ProductUpdateDTO) {
+export function updateProduct(id: string, data: ProductUpdateDTO) {
   return request.put('/device-mind/core/products', data, { params: { id } })
 }
 

@@ -14,7 +14,7 @@ export function createDevice(data: DeviceCreateDTO) {
   return request.post('/device-mind/core/devices', data)
 }
 
-export function updateDevice(id: number, data: DeviceUpdateDTO) {
+export function updateDevice(id: string, data: DeviceUpdateDTO) {
   return request.put('/device-mind/core/devices', data, { params: { id } })
 }
 
@@ -22,6 +22,6 @@ export function deleteDevice(id: string) {
   return request.delete('/device-mind/core/devices', { params: { id } })
 }
 
-export function updateDeviceStatus(id: number, data: DeviceStatusUpdateDTO) {
+export function updateDeviceStatus(id: string, data: DeviceStatusUpdateDTO) {
   return request.put('/device-mind/core/devices/status', data, { params: { id } })
 }

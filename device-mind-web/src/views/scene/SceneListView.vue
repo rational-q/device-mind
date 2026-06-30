@@ -104,14 +104,14 @@ async function fetchData() {
 // 新增/编辑
 const dialogVisible = ref(false)
 const isEdit = ref(false)
-const editId = ref(0)
+const editId = ref("")
 const saving = ref(false)
 const formRef = ref()
 const form = reactive({ name: '', description: '', productId: null as number | null, conditions: '', actions: '' })
 const rules = { name: [{ required: true, message: '请输入场景名称' }], conditions: [{ required: true, message: '请填写触发条件' }], actions: [{ required: true, message: '请填写执行动作' }] }
 
 function openCreate() {
-  isEdit.value = false; editId.value = 0
+  isEdit.value = false; editId.value = ""
   form.name = ''; form.description = ''; form.conditions = ''; form.actions = ''
   dialogVisible.value = true
 }
@@ -134,7 +134,7 @@ async function handleSave() {
   } finally { saving.value = false }
 }
 
-async function handleToggle(id: number) { await toggleScene(id); fetchData() }
+async function handleToggle(id: string) { await toggleScene(id); fetchData() }
 async function handleDelete(id: string) { await deleteScene(id); fetchData() }
 
 // 日志弹窗
@@ -144,7 +144,7 @@ const logData = ref<SceneLogVO[]>([])
 const logTotal = ref(0)
 const logLoading = ref(false)
 const logQuery = reactive({ sceneId: null as number | null, pageNum: 1, pageSize: 10 })
-const productOptions = ref<{ id: number; name: string }[]>([])
+const productOptions = ref<{ id: string; name: string }[]>([])
 onMounted(async () => { const res = await getProductList({ pageSize: 100 }); productOptions.value = res.records })
 async function viewLogs(row: SceneVO) {
   currentSceneName.value = row.name
