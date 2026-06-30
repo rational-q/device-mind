@@ -31,9 +31,8 @@
 |------|------|
 | MySQL 8.0 | 业务数据（设备/产品/告警/场景/指令日志） |
 | TimescaleDB (PG15) | 时序数据（设备上报指标） |
-| Redis 7 | MQTT Session 持久化 + 消息存储 + 补偿队列 |
+| Redis 7 + Redisson 3.50 | Session/消息/补偿/对话记忆（纯 Redisson，无 Lettuce） |
 | Kafka | 设备数据/状态/指令/回执 异步消息总线 |
-| Redisson 3.x | 分布式锁与分布式集合 |
 
 ## 消息可靠性（零丢失方案）
 
@@ -108,9 +107,11 @@ POST /commands/send → DeviceCommandProducer → Kafka(device-command)
 | `commandStats` | 只读 | 指令成功率 |
 | `nl2sql` | 只读 | 自然语言→SQL 查数据 |
 | `projectDocs` | 只读 | 项目架构/技术方案知识库 |
-| `sendCommand` | 待确认 | 指令下发（白名单+前端确认） |
+| `sendCommand` | 待确认 | 指令下发（白名单+前端确认弹窗） |
 
-安全设计：`sendCommand` 只生成参数不执行，返回 `pendingAction` 等前端用户二次确认。
+**对话记忆**: Redis 滑动窗口（最近 10 轮）+ AI 摘要压缩，sessionId 持久化到 localStorage，刷新/新 tab 不丢失。
+
+安全设计：`sendCommand` 只生成参数不执行，返回 `pendingAction` 前端弹窗二次确认。
 
 ### ⚡ 场景联动
 
@@ -122,9 +123,11 @@ POST /commands/send → DeviceCommandProducer → Kafka(device-command)
 
 - 实时大屏（WebSocket + ECharts 动态曲线）
 - 设备管理、产品与物模型、告警列表与规则、场景联动
+- 设备数据查询（按设备/属性/时间范围查历史时序数据）
 - 指令下发页面（模板快捷填充 + JSON 参数校验）
-- AI 助手对话界面（含 pendingAction 确认弹窗）
+- AI 助手对话界面（上下文记忆 + pendingAction 确认弹窗）
 - 指令日志查询
+- 对话持久化（localStorage sessionId + 消息列表，刷新不丢）
 
 ## 快速启动
 
@@ -190,9 +193,11 @@ device-mind/
 │   ├── init-mysql.sql
 │   └── init-timescaledb.sql
 ├── device-mind-common/             # 共享模块
-│   └── config/                     # Kafka/Topic/ErrorHandler/Redisson/线程池
-│   └── kafka/producer/             # 5 个 Producer (Data/Status/Lifecycle/Cmd/Response)
-│   └── support/                    # IdempotentGuard (幂等守卫)
+│   ├── config/                     # Kafka/Topic/ErrorHandler/Redisson/线程池
+│   ├── kafka/producer/             # 5 个 Producer
+│   ├── kafka/model/                # Kafka 消息模型
+│   ├── support/                    # IdempotentGuard (幂等守卫)
+│   └── utils/                      # JsonUtil (全局 JSON 工具)
 ├── device-mind-broker/             # MQTT Broker
 │   ├── codec/                      # MQTT 编解码
 │   ├── handler/                    # Connect/Subscribe/Publish/Disconnect/Heartbeat
@@ -212,9 +217,12 @@ device-mind/
 │   ├── client/                     # DeepSeekClient / CoreApiClient
 │   ├── function/                   # FunctionHandler + FunctionRegistry + ToolDefinition
 │   │   └── handler/                # 11 个 Function Handler
+│   ├── service/                    # ConversationStore (Redis 滑动窗口+摘要记忆)
 │   └── model/                      # ChatRequest/Response, AlertAnalysis 等
 └── device-mind-web/                # Vue 3 前端
     ├── src/api/                    # agent / command / device / alert / scene 等
+    ├── src/stores/                 # Pinia 状态管理 (chat, app)
+    ├── src/types/                  # TypeScript 类型定义
     ├── src/views/                  # dashboard / device / alert / command / agent / scene
     └── src/router/                 # 路由配置
 ```

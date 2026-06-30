@@ -11,7 +11,7 @@
           <el-table-column label="操作" width="140">
             <template #default="{ row }">
               <el-button size="small" @click="openAttrDialog(row)">编辑</el-button>
-              <el-popconfirm title="确认删除？" @confirm="deleteAttribute(row.id)"><el-button size="small" type="danger">删除</el-button></el-popconfirm>
+              <el-popconfirm title="确认删除？" @confirm="deleteAttribute(row.id)"><template #reference><el-button size="small" type="danger">删除</el-button></template></el-popconfirm>
             </template>
           </el-table-column>
         </el-table>
@@ -24,7 +24,7 @@
           <el-table-column label="操作" width="140">
             <template #default="{ row }">
               <el-button size="small" @click="openSvcDialog(row)">编辑</el-button>
-              <el-popconfirm title="确认删除？" @confirm="deleteService(row.id)"><el-button size="small" type="danger">删除</el-button></el-popconfirm>
+              <el-popconfirm title="确认删除？" @confirm="deleteService(row.id)"><template #reference><el-button size="small" type="danger">删除</el-button></template></el-popconfirm>
             </template>
           </el-table-column>
         </el-table>
@@ -37,7 +37,7 @@
           <el-table-column label="操作" width="140">
             <template #default="{ row }">
               <el-button size="small" @click="openEvtDialog(row)">编辑</el-button>
-              <el-popconfirm title="确认删除？" @confirm="deleteEvent(row.id)"><el-button size="small" type="danger">删除</el-button></el-popconfirm>
+              <el-popconfirm title="确认删除？" @confirm="deleteEvent(row.id)"><template #reference><el-button size="small" type="danger">删除</el-button></template></el-popconfirm>
             </template>
           </el-table-column>
         </el-table>
@@ -113,15 +113,15 @@ async function refreshTab() {
 
 function openAttrDialog(row?: T.ThingAttributeVO) { Object.assign(attrForm, row ? { ...row } : { dataType: 'DOUBLE', accessMode: 'R' }); attrDialog.value = true }
 async function saveAttr() { if (attrForm.id) await api.updateAttribute(productId, attrForm.id, attrForm); else await api.createAttribute(productId, attrForm); attrDialog.value = false; refreshTab() }
-async function deleteAttribute(id: number) { await api.deleteAttribute(productId, id); refreshTab() }
+async function deleteAttribute(id: string) { await api.deleteAttribute(productId, id); refreshTab() }
 
 function openSvcDialog(row?: T.ThingServiceVO) { Object.assign(svcForm, row ? { ...row } : { callType: 'ASYNC' }); svcDialog.value = true }
 async function saveSvc() { if (svcForm.id) await api.updateService(productId, svcForm.id, svcForm); else await api.createService(productId, { ...svcForm, params: [] }); svcDialog.value = false; refreshTab() }
-async function deleteService(id: number) { await api.deleteService(productId, id); refreshTab() }
+async function deleteService(id: string) { await api.deleteService(productId, id); refreshTab() }
 
 function openEvtDialog(row?: T.ThingEventVO) { Object.assign(evtForm, row ? { ...row } : { type: 'INFO' }); evtDialog.value = true }
 async function saveEvt() { if (evtForm.id) await api.updateEvent(productId, evtForm.id, evtForm); else await api.createEvent(productId, evtForm); evtDialog.value = false; refreshTab() }
-async function deleteEvent(id: number) { await api.deleteEvent(productId, id); refreshTab() }
+async function deleteEvent(id: string) { await api.deleteEvent(productId, id); refreshTab() }
 
 onMounted(fetchAll)
 </script>

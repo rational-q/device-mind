@@ -85,7 +85,7 @@
 <script setup lang="ts">
 import PageContainer from '@/components/common/PageContainer.vue'
 import { getSceneList, createScene, updateScene, deleteScene, toggleScene, getSceneLogList } from '@/api/scene'
-import { getProductList } from '@/api/product' from '@/api/scene'
+import { getProductList } from '@/api/product'
 import { formatDateTime } from '@/utils/date'
 import { SCENE_STATUS_MAP } from '@/utils/constants'
 import type { SceneVO, SceneLogVO } from '@/types/scene'
@@ -135,7 +135,7 @@ async function handleSave() {
 }
 
 async function handleToggle(id: number) { await toggleScene(id); fetchData() }
-async function handleDelete(id: number) { await deleteScene(id); fetchData() }
+async function handleDelete(id: string) { await deleteScene(id); fetchData() }
 
 // 日志弹窗
 const logVisible = ref(false)

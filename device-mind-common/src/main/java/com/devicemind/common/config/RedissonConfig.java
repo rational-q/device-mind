@@ -5,12 +5,10 @@ import org.redisson.api.RedissonClient;
 import org.redisson.codec.JsonJacksonCodec;
 import org.redisson.config.Config;
 import org.redisson.config.SingleServerConfig;
-import org.redisson.spring.data.connection.RedissonConnectionFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 
 /**
  * Redisson 分布式客户端配置
@@ -68,7 +66,6 @@ public class RedissonConfig {
      * </ul>
      */
     @Bean(destroyMethod = "shutdown")
-    @Primary
     @ConditionalOnProperty(name = "spring.data.redis.host")
     public RedissonClient redissonClient() {
         Config config = new Config();
@@ -95,18 +92,5 @@ public class RedissonConfig {
         config.setNettyThreads(Runtime.getRuntime().availableProcessors() * 2);
 
         return Redisson.create(config);
-    }
-
-    /**
-     * RedissonConnectionFactory — 桥接 Spring Data Redis
-     * <p>
-     * 让 StringRedisTemplate 也能复用 Redisson 的连接池，
-     * 避免同时维护 Lettuce 和 Redisson 两套连接。
-     */
-    @Bean
-    @Primary
-    @ConditionalOnProperty(name = "spring.data.redis.host")
-    public RedissonConnectionFactory redissonConnectionFactory(RedissonClient redissonClient) {
-        return new RedissonConnectionFactory(redissonClient);
     }
 }

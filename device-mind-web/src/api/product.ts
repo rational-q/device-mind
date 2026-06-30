@@ -6,7 +6,7 @@ export function getProductList(data: ProductPageQueryDTO) {
   return request.post<any, PageResult<ProductVO>>('/device-mind/core/products/list', data)
 }
 
-export function getProductById(id: number) {
+export function getProductById(id: string) {
   return request.get<any, ProductVO>('/device-mind/core/products/detail', { params: { id } })
 }
 
@@ -18,6 +18,6 @@ export function updateProduct(id: number, data: ProductUpdateDTO) {
   return request.put('/device-mind/core/products', data, { params: { id } })
 }
 
-export function deleteProduct(id: number) {
+export function deleteProduct(id: string) {
   return request.delete('/device-mind/core/products', { params: { id } })
 }

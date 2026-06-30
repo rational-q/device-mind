@@ -6,7 +6,7 @@ export function getDeviceList(data: DevicePageQueryDTO) {
   return request.post<any, PageResult<DeviceVO>>('/device-mind/core/devices/list', data)
 }
 
-export function getDeviceById(id: number) {
+export function getDeviceById(id: string) {
   return request.get<any, DeviceVO>('/device-mind/core/devices/detail', { params: { id } })
 }
 
@@ -18,7 +18,7 @@ export function updateDevice(id: number, data: DeviceUpdateDTO) {
   return request.put('/device-mind/core/devices', data, { params: { id } })
 }
 
-export function deleteDevice(id: number) {
+export function deleteDevice(id: string) {
   return request.delete('/device-mind/core/devices', { params: { id } })
 }
 

@@ -21,7 +21,9 @@
         <template #default="{ row }">
           <el-button size="small" @click="$router.push(`/device-detail?id=${row.id}`)">详情</el-button>
           <el-button size="small" @click="openDialog(row)">编辑</el-button>
-          <el-popconfirm title="确认删除？" @confirm="handleDelete(row.id)"><el-button size="small" type="danger">删除</el-button></el-popconfirm>
+          <el-popconfirm title="确认删除？" @confirm="handleDelete(row.id)">
+            <template #reference><el-button size="small" type="danger">删除</el-button></template>
+          </el-popconfirm>
         </template>
       </el-table-column>
     </el-table>
@@ -75,7 +77,7 @@ async function handleSave() {
   else await createDevice({ deviceId: form.deviceId, productId: form.productId, name: form.name, location: form.location, firmwareVersion: form.firmwareVersion, tags: form.tags })
   dialogVisible.value = false; fetchData()
 }
-async function handleDelete(id: number) { await deleteDevice(id); fetchData() }
+async function handleDelete(id: string) { await deleteDevice(id); fetchData() }
 
 onMounted(fetchData)
 </script>

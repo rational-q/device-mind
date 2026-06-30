@@ -5,20 +5,20 @@ import type { PageResult } from '@/types/api'
 export function getAlertList(data: AlertPageQueryDTO) {
   return request.post<any, PageResult<AlertVO>>('/device-mind/core/alerts/list', data)
 }
-export function getAlertById(id: number) {
+export function getAlertById(id: string) {
   return request.get<any, AlertVO>('/device-mind/core/alerts/detail', { params: { id } })
 }
-export function confirmAlert(id: number) {
+export function confirmAlert(id: string) {
   return request.put('/device-mind/core/alerts/confirm', null, { params: { id } })
 }
-export function resolveAlert(id: number) {
+export function resolveAlert(id: string) {
   return request.put('/device-mind/core/alerts/resolve', null, { params: { id } })
 }
 
 export function getAlertRuleList(data: AlertRulePageQueryDTO) {
   return request.post<any, PageResult<AlertRuleVO>>('/device-mind/core/alert-rules/list', data)
 }
-export function getAlertRuleById(id: number) {
+export function getAlertRuleById(id: string) {
   return request.get<any, AlertRuleVO>('/device-mind/core/alert-rules/detail', { params: { id } })
 }
 export function createAlertRule(data: AlertRuleCreateDTO) {
@@ -27,9 +27,9 @@ export function createAlertRule(data: AlertRuleCreateDTO) {
 export function updateAlertRule(id: number, data: AlertRuleUpdateDTO) {
   return request.put('/device-mind/core/alert-rules', data, { params: { id } })
 }
-export function deleteAlertRule(id: number) {
+export function deleteAlertRule(id: string) {
   return request.delete('/device-mind/core/alert-rules', { params: { id } })
 }
-export function toggleAlertRule(id: number) {
+export function toggleAlertRule(id: string) {
   return request.put('/device-mind/core/alert-rules/toggle', null, { params: { id } })
 }

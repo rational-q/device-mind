@@ -1,10 +1,13 @@
 package com.devicemind.common.utils;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.io.IOException;
@@ -19,6 +22,7 @@ import java.util.Map;
  * <p>
  * 配置：
  * <ul>
+ *   <li>Long → String 序列化（防止 JS 数字溢出，Snowflake ID 超过 2^53）</li>
  *   <li>忽略未知属性（反序列化时不会因多余字段报错）</li>
  *   <li>日期/时间格式使用 ISO-8601</li>
  *   <li>Java 8 时间类型（LocalDateTime 等）支持</li>
@@ -26,10 +30,19 @@ import java.util.Map;
  */
 public final class JsonUtil {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper()
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-            .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-            .registerModule(new JavaTimeModule());
+    private static final ObjectMapper MAPPER;
+
+    static {
+        SimpleModule longToStringModule = new SimpleModule();
+        longToStringModule.addSerializer(Long.class, ToStringSerializer.instance);
+        longToStringModule.addSerializer(Long.TYPE, ToStringSerializer.instance);
+
+        MAPPER = new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+                .registerModule(new JavaTimeModule())
+                .registerModule(longToStringModule);
+    }
 
     private JsonUtil() {}
 
