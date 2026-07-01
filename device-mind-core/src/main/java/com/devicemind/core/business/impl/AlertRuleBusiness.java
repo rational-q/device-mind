@@ -11,6 +11,8 @@ import com.devicemind.core.model.vo.AlertRuleVO;
 import com.devicemind.core.stdsvc.intf.IDmAlertRuleService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -23,6 +25,20 @@ public class AlertRuleBusiness implements IAlertRuleBusiness {
 
     @Autowired
     private IDmAlertRuleService alertRuleService;
+    @Autowired
+    private CacheManager cacheManager;
+
+    /**
+     * 清空告警规则缓存。
+     * <p>
+     * processor 用编程式 {@code cacheManager.getCache("alertRules").get(key, loader)}
+     * 写缓存（key 为 {@code productKey:enabled}），声明式 @CacheEvict 无法命中，
+     * 故规则增删改后统一 clear 整个 cache，保证新规则即时生效。
+     */
+    private void evictRuleCache() {
+        Cache cache = cacheManager.getCache("alertRules");
+        if (cache != null) cache.clear();
+    }
 
     @Override
     public Page<AlertRuleVO> listPage(AlertRulePageQueryDTO query) {
@@ -66,6 +82,7 @@ public class AlertRuleBusiness implements IAlertRuleBusiness {
         DmAlertRule entity = new DmAlertRule();
         BeanUtils.copyProperties(dto, entity);
         alertRuleService.save(entity);
+        evictRuleCache();
     }
 
     @Override
@@ -75,6 +92,7 @@ public class AlertRuleBusiness implements IAlertRuleBusiness {
         if (existing == null) throw new ServiceException(404, "告警规则不存在");
         BeanUtils.copyProperties(dto, existing, "id");
         alertRuleService.updateById(existing);
+        evictRuleCache();
     }
 
     @Override
@@ -82,6 +100,7 @@ public class AlertRuleBusiness implements IAlertRuleBusiness {
     public void delete(Long id) {
         if (alertRuleService.getById(id) == null) throw new ServiceException(404, "告警规则不存在");
         alertRuleService.removeById(id);
+        evictRuleCache();
     }
 
     @Override
@@ -93,5 +112,6 @@ public class AlertRuleBusiness implements IAlertRuleBusiness {
         update.setId(id);
         update.setEnabled(!Boolean.TRUE.equals(rule.getEnabled()));
         alertRuleService.updateById(update);
+        evictRuleCache();
     }
 }

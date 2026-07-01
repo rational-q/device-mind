@@ -13,8 +13,11 @@ import com.devicemind.core.model.vo.SceneLogVO;
 import com.devicemind.core.model.vo.SceneVO;
 import com.devicemind.core.stdsvc.intf.IDmSceneLogService;
 import com.devicemind.core.stdsvc.intf.IDmSceneService;
+import com.devicemind.common.utils.SnowflakeId;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +29,14 @@ public class SceneBusiness implements ISceneBusiness {
     private IDmSceneService sceneService;
     @Autowired
     private IDmSceneLogService sceneLogService;
+    @Autowired
+    private CacheManager cacheManager;
+
+    /** 清空场景缓存（processor 用 cacheManager.getCache("scenes").get("enabled", loader) 编程式缓存） */
+    private void evictSceneCache() {
+        Cache cache = cacheManager.getCache("scenes");
+        if (cache != null) cache.clear();
+    }
 
     @Override
     public Page<SceneVO> listPage(int pageNum, int pageSize) {
@@ -55,6 +66,7 @@ public class SceneBusiness implements ISceneBusiness {
         scene.setActions(dto.getActions());
         scene.setEnabled(true);
         sceneService.save(scene);
+        evictSceneCache();
         log.info("场景创建成功: id={}, name={}", scene.getId(), dto.getName());
         return scene.getId();
     }
@@ -69,6 +81,7 @@ public class SceneBusiness implements ISceneBusiness {
         if (dto.getConditions() != null) scene.setConditions(dto.getConditions());
         if (dto.getActions() != null) scene.setActions(dto.getActions());
         sceneService.updateById(scene);
+        evictSceneCache();
     }
 
     @Override
@@ -77,6 +90,7 @@ public class SceneBusiness implements ISceneBusiness {
         if (!sceneService.removeById(id)) {
             throw new ServiceException(404, "场景不存在");
         }
+        evictSceneCache();
     }
 
     @Override
@@ -86,6 +100,7 @@ public class SceneBusiness implements ISceneBusiness {
         if (scene == null) throw new ServiceException(404, "场景不存在");
         scene.setEnabled(!Boolean.TRUE.equals(scene.getEnabled()));
         sceneService.updateById(scene);
+        evictSceneCache();
     }
 
     @Override
@@ -114,6 +129,6 @@ public class SceneBusiness implements ISceneBusiness {
     }
 
     private long snowflakeId() {
-        return System.currentTimeMillis() << 12 | (long) (Math.random() * 4096);
+        return SnowflakeId.nextId();
     }
 }

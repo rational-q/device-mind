@@ -19,9 +19,9 @@
       </el-table-column>
       <el-table-column label="操作" width="240">
         <template #default="{ row }">
-          <el-button size="small" @click="openEdit(row)">编辑</el-button>
+          <el-button size="small" @click="openEdit(row as SceneVO)">编辑</el-button>
           <el-button size="small" :type="row.enabled ? 'warning' : 'success'" @click="handleToggle(row.id)">{{ row.enabled ? '禁用' : '启用' }}</el-button>
-          <el-button size="small" @click="viewLogs(row)">日志</el-button>
+          <el-button size="small" @click="viewLogs(row as SceneVO)">日志</el-button>
           <el-popconfirm title="确定删除?" @confirm="handleDelete(row.id)">
             <template #reference><el-button size="small" type="danger">删除</el-button></template>
           </el-popconfirm>
@@ -89,7 +89,7 @@ import { getProductList } from '@/api/product'
 import { formatDateTime } from '@/utils/date'
 import { SCENE_STATUS_MAP } from '@/utils/constants'
 import type { SceneVO, SceneLogVO } from '@/types/scene'
-
+import { ElMessage } from 'element-plus'
 const query = reactive({ pageNum: 1, pageSize: 10 })
 const tableData = ref<SceneVO[]>([])
 const total = ref(0)
@@ -104,14 +104,14 @@ async function fetchData() {
 // 新增/编辑
 const dialogVisible = ref(false)
 const isEdit = ref(false)
-const editId = ref(0)
+const editId = ref("")
 const saving = ref(false)
 const formRef = ref()
-const form = reactive({ name: '', description: '', productId: null as number | null, conditions: '', actions: '' })
+const form = reactive({ name: '', description: '', productId: null as string | null, conditions: '', actions: '' })
 const rules = { name: [{ required: true, message: '请输入场景名称' }], conditions: [{ required: true, message: '请填写触发条件' }], actions: [{ required: true, message: '请填写执行动作' }] }
 
 function openCreate() {
-  isEdit.value = false; editId.value = 0
+  isEdit.value = false; editId.value = ""
   form.name = ''; form.description = ''; form.conditions = ''; form.actions = ''
   dialogVisible.value = true
 }
@@ -128,14 +128,14 @@ async function handleSave() {
   if (!valid) return
   saving.value = true
   try {
-    if (isEdit.value) { await updateScene(editId.value, form) } else { await createScene(form) }
+    if (isEdit.value) { await updateScene(editId.value, form) } else { await createScene({ ...form, productId: form.productId ?? '' }) }
     ElMessage.success(isEdit.value ? '更新成功' : '创建成功')
     dialogVisible.value = false; fetchData()
   } finally { saving.value = false }
 }
 
-async function handleToggle(id: number) { await toggleScene(id); fetchData() }
-async function handleDelete(id: string) { await deleteScene(id); fetchData() }
+async function handleToggle(id: string) { await toggleScene(id); ElMessage.success("操作成功"); fetchData() }
+async function handleDelete(id: string) { await deleteScene(id); ElMessage.success("删除成功"); fetchData() }
 
 // 日志弹窗
 const logVisible = ref(false)
@@ -143,8 +143,8 @@ const currentSceneName = ref('')
 const logData = ref<SceneLogVO[]>([])
 const logTotal = ref(0)
 const logLoading = ref(false)
-const logQuery = reactive({ sceneId: null as number | null, pageNum: 1, pageSize: 10 })
-const productOptions = ref<{ id: number; name: string }[]>([])
+const logQuery = reactive({ sceneId: null as string | null, pageNum: 1, pageSize: 10 })
+const productOptions = ref<{ id: string; name: string }[]>([])
 onMounted(async () => { const res = await getProductList({ pageSize: 100 }); productOptions.value = res.records })
 async function viewLogs(row: SceneVO) {
   currentSceneName.value = row.name

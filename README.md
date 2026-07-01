@@ -51,10 +51,12 @@
 ### 下行链路：Core → 设备
 
 ```
-POST /commands/send → DeviceCommandProducer → Kafka(device-command)
+POST /commands/send
+  → 落库 dm_command_log (PENDING, 幂等键去重)
+  → DeviceCommandProducer → Kafka(device-command)，成功置 SENT
   → DeviceCmdConsumer(Broker) → CommandService → MQTT → 设备
-  → 设备响应 → Kafka(device-response) → DeviceResponseConsumer → 更新 SUCCESS
-  → 无响应: CommandRetrySupport 每 30s 扫描 SENT 指令重试
+  → 设备响应 device/response/{id} → Kafka(device-response) → DeviceResponseConsumer → SUCCESS
+  → 无响应: CommandRetrySupport 每 30s 扫描 PENDING/SENT 指令重试，超 5 次 EXPIRED
 ```
 
 ### 补偿机制（三层）
@@ -70,12 +72,15 @@ POST /commands/send → DeviceCommandProducer → Kafka(device-command)
 ### 📡 MQTT Broker
 
 - 完整 MQTT 3.1.1 协议：CONNECT / SUBSCRIBE / PUBLISH / PINGREQ / DISCONNECT
-- QoS 0/1，QoS 1 消息先 Redis 持久化再 PUBACK
+- QoS 0/1，QoS 1 消息先 Redis 持久化再 PUBACK；QoS 2 / 非法 QoS 显式拒绝
 - MQTT Session Redis 持久化（TTL=keepAlive×2+60s，心跳续期）
 - Broker 重启后可恢复 session + 订阅
 - 主题通配符匹配（`+` 单层 / `#` 多层）
-- 心跳超时自动踢下线
+- 心跳超时按 `1.5 × keepAlive` 动态判定，自动踢下线
 - 设备认证（白名单，通过 Kafka lifecycle 事件同步）
+- **协议加固**（受 `broker.auth.enforce-protocol` 开关控制，默认跟随认证开关）：
+  必须先 CONNECT 才能收发；topic 授权（设备只能收发自身 deviceId 主题，禁越权/伪造回执）；
+  Remaining Length 上限防 OOM；顶号原子替换消除会话竞态
 
 ### 🔌 设备管理
 
@@ -86,8 +91,10 @@ POST /commands/send → DeviceCommandProducer → Kafka(device-command)
 
 ### 🔔 告警体系
 
-- 滑动窗口告警引擎（防抖判定）
-- 告警规则 CRUD + 启用/禁用
+- 滑动窗口告警引擎：`durationSeconds` 内持续满足条件才触发（防抖），支持 > >= < <= ==
+- 告警去重：TRIGGERED / CONFIRMED 均视为活跃，确认后不重复触发
+- 指标恢复正常自动置 RESOLVED（告警自愈，无需人工恢复）
+- 告警规则 CRUD + 启用/禁用（变更后缓存即时失效生效）
 - CRITICAL 告警自动短信通知
 - 触发后异步调 Agent AI 分析，结果回写 `ai_analysis`
 
@@ -115,9 +122,10 @@ POST /commands/send → DeviceCommandProducer → Kafka(device-command)
 
 ### ⚡ 场景联动
 
-- 条件触发 + 动作链：COMMAND → DELAY → SMS
+- 条件触发（支持 duration 持续判定）+ 动作链：COMMAND → DELAY → SMS
+- 动作链异步执行，DELAY 不阻塞数据入库
 - 指令通过 Kafka 异步下发，状态追踪
-- 场景 CRUD + 启用/禁用
+- 场景 CRUD + 启用/禁用（变更后缓存即时失效生效）
 
 ### 📊 Web 管理后台
 
@@ -183,6 +191,7 @@ export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxx
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka 地址 |
 | `DEVICE_OFFLINE_ALERT_PHONE` | — | 设备离线通知手机号 |
 | `ALERT_CRITICAL_PHONE` | — | 严重告警通知手机号 |
+| `BROKER_AUTH_ENABLED` | `false` | Broker 用户名密码认证 + 协议约束开关（生产建议开启） |
 
 ## 项目结构
 

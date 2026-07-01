@@ -65,6 +65,7 @@
 </template>
 
 <script setup lang="ts">
+import { ElMessage } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
 import { analyzeAlert, chat } from '@/api/agent'
 import { sendCommand } from '@/api/command'

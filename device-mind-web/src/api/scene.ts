@@ -11,10 +11,10 @@ export function getSceneById(id: string) {
 }
 
 export function createScene(data: SceneCreateDTO) {
-  return request.post<any, number>('/device-mind/core/scenes', data)
+  return request.post<any, string>('/device-mind/core/scenes', data)
 }
 
-export function updateScene(id: number, data: SceneUpdateDTO) {
+export function updateScene(id: string, data: SceneUpdateDTO) {
   return request.put('/device-mind/core/scenes', data, { params: { id } })
 }
 
@@ -26,6 +26,6 @@ export function toggleScene(id: string) {
   return request.put('/device-mind/core/scenes/toggle', null, { params: { id } })
 }
 
-export function getSceneLogList(sceneId: number | null, pageNum: number, pageSize: number) {
+export function getSceneLogList(sceneId: string | null, pageNum: number, pageSize: number) {
   return request.post<any, PageResult<SceneLogVO>>('/device-mind/core/scenes/log/list', { sceneId, pageNum, pageSize })
 }

@@ -56,7 +56,7 @@ public class DeviceStatusHandler implements FunctionHandler {
                     ? args.get("productKey").asText() : null;
             return coreApiClient.getDeviceStatusSummary(deviceId, productKey);
         } catch (Exception e) {
-            return "{\"error\":\"参数解析失败: " + e.getMessage() + "\"}";
+            return com.devicemind.agent.function.FunctionHandler.errorJson("参数解析失败: " + e.getMessage());
         }
     }
 }

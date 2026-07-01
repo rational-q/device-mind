@@ -17,6 +17,13 @@ import java.util.List;
 @Slf4j
 public class MqttDecoder extends ByteToMessageDecoder {
 
+    /** 单个报文 Remaining Length 业务上限（字节） */
+    private final int maxRemainingLength;
+
+    public MqttDecoder(int maxRemainingLength) {
+        this.maxRemainingLength = maxRemainingLength > 0 ? maxRemainingLength : 1024 * 1024;
+    }
+
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
         // 至少需要 2 字节：固定头部首字节 + 至少1字节的 Remaining Length
@@ -61,6 +68,14 @@ public class MqttDecoder extends ByteToMessageDecoder {
                 throw new IllegalArgumentException("Remaining Length 格式非法，超过4字节");
             }
         } while ((encodedByte & 128) != 0);
+
+        // 2.1 业务上限校验：超限直接关闭连接，避免恶意大报文撑爆累积缓冲导致 OOM
+        if (remainingLength > maxRemainingLength) {
+            log.error("报文 Remaining Length={} 超过业务上限 {}，关闭连接",
+                    remainingLength, maxRemainingLength);
+            ctx.close();
+            return;
+        }
 
         // 3. 剩余数据长度不足，回退等待
         if (in.readableBytes() < remainingLength) {
@@ -224,8 +239,21 @@ public class MqttDecoder extends ByteToMessageDecoder {
 
         // 标志位解析
         msg.setDup((flags & 0x08) != 0);
-        msg.setQos((flags & 0x06) >> 1);
+        int qos = (flags & 0x06) >> 1;
         msg.setRetain((flags & 0x01) != 0);
+
+        // QoS 合法性：0b11(3) 为非法值；QoS2 本 Broker 暂不支持
+        if (qos == 3) {
+            throw new IllegalArgumentException("非法 QoS 值 3（malformed packet）");
+        }
+        if (qos == 2) {
+            throw new IllegalArgumentException("本 Broker 暂不支持 QoS 2，拒绝该 PUBLISH");
+        }
+        // QoS 0 的 PUBLISH 其 DUP 必须为 0（MQTT-3.3.1-2）
+        if (qos == 0 && msg.isDup()) {
+            throw new IllegalArgumentException("QoS 0 报文 DUP 位必须为 0（malformed packet）");
+        }
+        msg.setQos(qos);
 
         // Topic
         if (payload.readableBytes() < 2) {

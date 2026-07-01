@@ -24,7 +24,7 @@
         </el-col>
         <el-col :span="3">
           <el-form-item>
-            <el-button type="primary" @click="fetchData">查询</el-button>
+            <el-button type="primary" @click="handleQuery">查询</el-button>
             <el-button @click="resetQuery">重置</el-button>
           </el-form-item>
         </el-col>
@@ -58,7 +58,7 @@
       :total="total"
       :page-sizes="[50, 100, 200]"
       layout="total, sizes, prev, pager, next"
-      @change="fetchData"
+      @change="() => fetchData()"
       style="margin-top: 16px; justify-content: flex-end"
     />
   </PageContainer>
@@ -90,7 +90,7 @@ function quickTime(hours: number) {
   fetchData()
 }
 
-async function fetchData() {
+async function fetchData(showToast = false) {
   if (!query.deviceId.trim()) {
     ElMessage.warning('请输入设备ID')
     return
@@ -107,10 +107,17 @@ async function fetchData() {
     })
     tableData.value = res.records
     total.value = res.total
+    // 仅点"查询"时提示，翻页静默，避免反复弹 toast
+    if (showToast) {
+      if (res.records.length > 0) ElMessage.success('查询到 ' + res.total + ' 条数据')
+      else ElMessage.info('未查到数据')
+    }
   } finally {
     loading.value = false
   }
 }
+
+function handleQuery() { query.pageNum = 1; fetchData(true) }
 
 function resetQuery() {
   query.deviceId = ''

@@ -1,7 +1,7 @@
 export interface DeviceVO {
   id: string
   deviceId: string
-  productId: number
+  productId: string
   productName: string
   name: string
   location: string
@@ -14,7 +14,7 @@ export interface DeviceVO {
 
 export interface DeviceCreateDTO {
   deviceId: string
-  productId: number
+  productId: string
   name?: string
   location?: string
   firmwareVersion?: string
@@ -30,7 +30,7 @@ export interface DeviceUpdateDTO {
 
 export interface DevicePageQueryDTO {
   deviceId?: string
-  productId?: number
+  productId?: string
   status?: string
   pageNum?: number
   pageSize?: number

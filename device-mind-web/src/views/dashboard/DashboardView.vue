@@ -49,14 +49,16 @@ const stats = reactive({ products: 0, devices: 0, onlineDevices: 0, activeAlerts
 const recentAlerts = ref<AlertVO[]>([])
 
 onMounted(async () => {
-  const [products, devices, alerts] = await Promise.all([
+  const [products, devices, alerts, activeAlerts] = await Promise.all([
     getProductList({ pageSize: 1 }),
     getDeviceList({ pageSize: 1 }),
     getAlertList({ pageSize: 10 }),
+    // 活跃告警只统计 TRIGGERED 状态，不含已确认/已恢复
+    getAlertList({ status: 'TRIGGERED', pageSize: 1 }),
   ])
   stats.products = products.total
   stats.devices = devices.total
-  stats.activeAlerts = alerts.total
+  stats.activeAlerts = activeAlerts.total
   recentAlerts.value = alerts.records
 
   const onlineDevices = await getDeviceList({ status: 'ONLINE', pageSize: 1 })

@@ -1,8 +1,7 @@
 package com.devicemind.broker.kafka.compensation;
 
+import com.devicemind.broker.kafka.forwarder.MessageForwarder;
 import com.devicemind.broker.service.MqttMessageStore;
-import com.devicemind.common.kafka.producer.DeviceDataProducer;
-import com.devicemind.common.kafka.producer.DeviceResponseProducer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -31,9 +30,7 @@ public class KafkaCompensationScheduler {
     @Autowired
     private MqttMessageStore messageStore;
     @Autowired
-    private DeviceDataProducer deviceDataProducer;
-    @Autowired
-    private DeviceResponseProducer deviceResponseProducer;
+    private MessageForwarder messageForwarder;
 
     /**
      * 每 10 秒扫描 FAILED 消息并重试
@@ -62,12 +59,8 @@ public class KafkaCompensationScheduler {
                 continue;
             }
 
-            CompletableFuture<?> future;
-            if (msg.mqttTopic().startsWith("device/command/")) {
-                future = deviceResponseProducer.sendAsync(msg.payload());
-            } else {
-                future = deviceDataProducer.sendAsync(msg.payload());
-            }
+            // 复用 MessageForwarder 的路由逻辑，保证补偿重试与首次转发路由一致
+            CompletableFuture<?> future = messageForwarder.sendByTopic(msg.mqttTopic(), msg.payload());
 
             future.whenComplete((result, ex) -> {
                 if (ex == null) {

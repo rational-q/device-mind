@@ -5,7 +5,7 @@
       <el-row :gutter="16">
         <el-col :span="6"><el-form-item label="设备ID"><el-input v-model="query.deviceId" placeholder="模糊搜索" clearable /></el-form-item></el-col>
         <el-col :span="5"><el-form-item label="状态"><el-select v-model="query.status" clearable style="width:100%"><el-option label="在线" value="ONLINE" /><el-option label="离线" value="OFFLINE" /></el-select></el-form-item></el-col>
-        <el-col :span="4"><el-form-item><el-button type="primary" @click="fetchData">查询</el-button><el-button @click="resetQuery">重置</el-button></el-form-item></el-col>
+        <el-col :span="4"><el-form-item><el-button type="primary" @click="handleQuery">查询</el-button><el-button @click="resetQuery">重置</el-button></el-form-item></el-col>
       </el-row>
     </el-form>
     <el-table :data="tableData" border stripe v-loading="loading">
@@ -20,7 +20,7 @@
       <el-table-column label="操作" width="220">
         <template #default="{ row }">
           <el-button size="small" @click="$router.push(`/device-detail?id=${row.id}`)">详情</el-button>
-          <el-button size="small" @click="openDialog(row)">编辑</el-button>
+          <el-button size="small" @click="openDialog(row as DeviceVO)">编辑</el-button>
           <el-popconfirm title="确认删除？" @confirm="handleDelete(row.id)">
             <template #reference><el-button size="small" type="danger">删除</el-button></template>
           </el-popconfirm>
@@ -48,10 +48,10 @@ import { getDeviceList, createDevice, updateDevice, deleteDevice } from '@/api/d
 import { getProductList } from '@/api/product'
 import { DEVICE_STATUS_MAP } from '@/utils/constants'
 import { formatDateTime } from '@/utils/date'
-import type { DeviceVO, DeviceCreateDTO } from '@/types/device'
+import type { DeviceVO } from '@/types/device'
 import type { ProductVO } from '@/types/product'
 import type { FormInstance } from 'element-plus'
-
+import { ElMessage } from 'element-plus'
 const query = reactive({ deviceId: '', status: '', pageNum: 1, pageSize: 10 })
 const tableData = ref<DeviceVO[]>([])
 const total = ref(0)
@@ -63,6 +63,7 @@ const formRef = ref<FormInstance>()
 const rules = { deviceId: [{ required: true }], productId: [{ required: true }] }
 
 async function fetchData() { loading.value = true; try { const res = await getDeviceList(query); tableData.value = res.records; total.value = res.total } finally { loading.value = false } }
+function handleQuery() { query.pageNum = 1; fetchData() }
 function resetQuery() { Object.assign(query, { deviceId: '', status: '', pageNum: 1 }); fetchData() }
 async function openDialog(row?: DeviceVO) {
   if (!products.value.length) products.value = (await getProductList({ pageSize: 100 })).records
@@ -72,12 +73,12 @@ async function openDialog(row?: DeviceVO) {
 }
 function resetForm() { formRef.value?.resetFields() }
 async function handleSave() {
-  await formRef.value?.validate()
-  if (form.id) await updateDevice(form.id, { name: form.name, location: form.location, firmwareVersion: form.firmwareVersion, tags: form.tags })
-  else await createDevice({ deviceId: form.deviceId, productId: form.productId, name: form.name, location: form.location, firmwareVersion: form.firmwareVersion, tags: form.tags })
+  
+  if (form.id) { await updateDevice(form.id, { name: form.name, location: form.location, firmwareVersion: form.firmwareVersion, tags: form.tags }); ElMessage.success('更新成功') }
+  else { await createDevice({ deviceId: form.deviceId, productId: form.productId, name: form.name, location: form.location, firmwareVersion: form.firmwareVersion, tags: form.tags }); ElMessage.success('创建成功') }
   dialogVisible.value = false; fetchData()
 }
-async function handleDelete(id: string) { await deleteDevice(id); fetchData() }
+async function handleDelete(id: string) { await deleteDevice(id); ElMessage.success("删除成功"); fetchData() }
 
 onMounted(fetchData)
 </script>

@@ -24,7 +24,7 @@ export function getAlertRuleById(id: string) {
 export function createAlertRule(data: AlertRuleCreateDTO) {
   return request.post('/device-mind/core/alert-rules', data)
 }
-export function updateAlertRule(id: number, data: AlertRuleUpdateDTO) {
+export function updateAlertRule(id: string, data: AlertRuleUpdateDTO) {
   return request.put('/device-mind/core/alert-rules', data, { params: { id } })
 }
 export function deleteAlertRule(id: string) {

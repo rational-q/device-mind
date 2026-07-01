@@ -45,7 +45,7 @@ public class AlertRulesHandler implements FunctionHandler {
                     ? args.get("deviceType").asText() : null;
             return coreApiClient.getAlertRules(deviceType);
         } catch (Exception e) {
-            return "{\"error\":\"参数解析失败: " + e.getMessage() + "\"}";
+            return com.devicemind.agent.function.FunctionHandler.errorJson("参数解析失败: " + e.getMessage());
         }
     }
 }

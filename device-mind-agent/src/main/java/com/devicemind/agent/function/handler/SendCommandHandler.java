@@ -109,7 +109,7 @@ SendCommandHandler implements FunctionHandler {
             log.info("sendCommand 待确认: deviceId={}, command={}", deviceId, command);
             return JsonUtil.toJson(pendingAction);
         } catch (Exception e) {
-            return "{\"error\":\"参数解析失败: " + e.getMessage() + "\"}";
+            return com.devicemind.agent.function.FunctionHandler.errorJson("参数解析失败: " + e.getMessage());
         }
     }
 }

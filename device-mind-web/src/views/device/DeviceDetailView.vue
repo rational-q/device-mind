@@ -56,7 +56,7 @@ const shadowDialog = ref(false)
 const desiredJson = ref('{}')
 
 onMounted(async () => {
-  const id = Number(route.query.id)
+  const id = route.query.id as string
   device.value = await getDeviceById(id)
   shadow.value = await getDeviceShadow(device.value!.deviceId)
 })

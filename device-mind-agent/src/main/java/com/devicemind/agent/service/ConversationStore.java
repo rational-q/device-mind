@@ -49,9 +49,14 @@ public class ConversationStore {
             messages.add(new DeepSeekClient.Message("system", "【历史对话摘要】" + summary));
         }
 
+        // 历史轮只回放 user / assistant 的最终文本（不含 tool_calls），
+        // 避免 assistant(tool_calls) 缺少配对 tool 消息导致 DeepSeek 400。
+        // 当前轮的工具调用上下文在本轮 messages 中是完整的，历史轮只需文本即可。
         RList<MsgEntry> msgList = redisson.getList(msgsKey(sessionId), JsonCodec.INSTANCE);
         for (MsgEntry m : msgList) {
-            messages.add(new DeepSeekClient.Message(m.role, m.content));
+            if (m.content != null && !m.content.isBlank()) {
+                messages.add(new DeepSeekClient.Message(m.role, m.content));
+            }
         }
 
         messages.add(new DeepSeekClient.Message("user", userMessage));

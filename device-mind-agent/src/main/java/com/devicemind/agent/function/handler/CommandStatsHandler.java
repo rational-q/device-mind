@@ -56,7 +56,7 @@ public class CommandStatsHandler implements FunctionHandler {
                     ? args.get("hours").asInt() : null;
             return coreApiClient.getCommandStats(deviceId, hours);
         } catch (Exception e) {
-            return "{\"error\":\"参数解析失败: " + e.getMessage() + "\"}";
+            return com.devicemind.agent.function.FunctionHandler.errorJson("参数解析失败: " + e.getMessage());
         }
     }
 }

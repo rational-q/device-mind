@@ -90,8 +90,10 @@ public class DeviceBusiness implements IDeviceBusiness {
         entity.setStatus(DeviceStatus.OFFLINE.name());
         deviceService.save(entity);
 
-        // 通知 Broker 注册设备（Kafka）
-        lifecycleProducer.register(dto.getDeviceId());
+        // 通知 Broker 注册设备（Kafka 同步发送，确保生命周期事件不丢）
+        lifecycleProducer.sendSync(
+                com.devicemind.common.kafka.model.DeviceLifecycleEvent.register(dto.getDeviceId()),
+                java.time.Duration.ofSeconds(10));
     }
 
     @Override
@@ -114,8 +116,10 @@ public class DeviceBusiness implements IDeviceBusiness {
         }
         deviceService.removeById(id);
 
-        // 通知 Broker 注销设备（Kafka）
-        lifecycleProducer.unregister(device.getDeviceId());
+        // 通知 Broker 注销设备（Kafka 同步发送，确保生命周期事件不丢）
+        lifecycleProducer.sendSync(
+                com.devicemind.common.kafka.model.DeviceLifecycleEvent.unregister(device.getDeviceId()),
+                java.time.Duration.ofSeconds(10));
     }
 
     @Override

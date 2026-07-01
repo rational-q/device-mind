@@ -2,7 +2,7 @@ export interface SceneVO {
   id: string
   name: string
   description: string
-  productId: number
+  productId: string
   conditions: string
   actions: string
   enabled: boolean
@@ -13,7 +13,7 @@ export interface SceneVO {
 export interface SceneCreateDTO {
   name: string
   description: string
-  productId: number
+  productId: string
   conditions: string
   actions: string
 }
@@ -27,7 +27,7 @@ export interface SceneUpdateDTO {
 
 export interface SceneLogVO {
   id: string
-  sceneId: number
+  sceneId: string
   sceneName: string
   deviceId: string
   triggeredAt: string

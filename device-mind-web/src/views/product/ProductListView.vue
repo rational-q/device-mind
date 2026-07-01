@@ -7,7 +7,7 @@
       <el-row :gutter="16">
         <el-col :span="6"><el-form-item label="产品标识"><el-input v-model="query.productKey" placeholder="模糊搜索" clearable /></el-form-item></el-col>
         <el-col :span="6"><el-form-item label="名称"><el-input v-model="query.name" placeholder="模糊搜索" clearable /></el-form-item></el-col>
-        <el-col :span="4"><el-form-item><el-button type="primary" @click="fetchData">查询</el-button><el-button @click="resetQuery">重置</el-button></el-form-item></el-col>
+        <el-col :span="4"><el-form-item><el-button type="primary" @click="handleQuery">查询</el-button><el-button @click="resetQuery">重置</el-button></el-form-item></el-col>
       </el-row>
     </el-form>
     <el-table :data="tableData" border stripe v-loading="loading">
@@ -24,7 +24,7 @@
       </el-table-column>
       <el-table-column label="操作" width="280">
         <template #default="{ row }">
-          <el-button size="small" @click="openDialog(row)">编辑</el-button>
+          <el-button size="small" @click="openDialog(row as ProductVO)">编辑</el-button>
           <el-button size="small" @click="$router.push(`/things?productId=${row.id}`)">物模型</el-button>
           <el-popconfirm title="确认删除？" @confirm="handleDelete(row.id)">
             <template #reference><el-button size="small" type="danger">删除</el-button></template>
@@ -57,7 +57,7 @@ import { getProductList, createProduct, updateProduct, deleteProduct } from '@/a
 import { formatDateTime } from '@/utils/date'
 import type { ProductVO } from '@/types/product'
 import type { FormInstance } from 'element-plus'
-
+import { ElMessage } from 'element-plus'
 const query = reactive({ productKey: '', name: '', pageNum: 1, pageSize: 10 })
 const tableData = ref<ProductVO[]>([])
 const total = ref(0)
@@ -70,6 +70,7 @@ const rules = { productKey: [{ required: true, message: '必填' }], name: [{ re
 const formTitle = computed(() => form.id ? '编辑产品' : '新增产品')
 
 async function fetchData() { loading.value = true; try { const res = await getProductList({ ...query }); tableData.value = res.records; total.value = res.total } finally { loading.value = false } }
+function handleQuery() { query.pageNum = 1; fetchData() }
 function resetQuery() { Object.assign(query, { productKey: '', name: '', pageNum: 1 }); fetchData() }
 function openDialog(row?: ProductVO) {
   if (row) Object.assign(form, row)
@@ -78,12 +79,12 @@ function openDialog(row?: ProductVO) {
 }
 function resetForm() { formRef.value?.resetFields() }
 async function handleSave() {
-  await formRef.value?.validate()
-  if (form.id) await updateProduct(form.id, { name: form.name, description: form.description, protocolType: form.protocolType, dataFormat: form.dataFormat, status: form.status })
-  else await createProduct({ productKey: form.productKey, name: form.name, description: form.description, protocolType: form.protocolType, dataFormat: form.dataFormat })
+  
+  if (form.id) { await updateProduct(form.id, { name: form.name, description: form.description, protocolType: form.protocolType, dataFormat: form.dataFormat, status: form.status }); ElMessage.success('更新成功') }
+  else { await createProduct({ productKey: form.productKey, name: form.name, description: form.description, protocolType: form.protocolType, dataFormat: form.dataFormat }); ElMessage.success('创建成功') }
   dialogVisible.value = false; fetchData()
 }
-async function handleDelete(id: string) { await deleteProduct(id); fetchData() }
+async function handleDelete(id: string) { await deleteProduct(id); ElMessage.success("删除成功"); fetchData() }
 
 onMounted(fetchData)
 </script>
