@@ -5,7 +5,7 @@
         <el-col :span="6"><el-form-item label="设备"><el-input v-model="query.deviceId" placeholder="设备ID" clearable /></el-form-item></el-col>
         <el-col :span="5"><el-form-item label="等级"><el-select v-model="query.level" clearable style="width:100%"><el-option value="WARN" label="警告" /><el-option value="CRITICAL" label="严重" /></el-select></el-form-item></el-col>
         <el-col :span="5"><el-form-item label="状态"><el-select v-model="query.status" clearable style="width:100%"><el-option value="TRIGGERED" label="已触发" /><el-option value="CONFIRMED" label="已确认" /><el-option value="RESOLVED" label="已恢复" /></el-select></el-form-item></el-col>
-        <el-col :span="4"><el-form-item><el-button type="primary" @click="fetchData">查询</el-button><el-button @click="resetQuery">重置</el-button></el-form-item></el-col>
+        <el-col :span="4"><el-form-item><el-button type="primary" @click="handleQuery">查询</el-button><el-button @click="resetQuery">重置</el-button></el-form-item></el-col>
       </el-row>
     </el-form>
     <el-table :data="tableData" border stripe v-loading="loading">
@@ -43,6 +43,7 @@ const total = ref(0)
 const loading = ref(false)
 
 async function fetchData() { loading.value = true; try { const res = await getAlertList(query); tableData.value = res.records; total.value = res.total } finally { loading.value = false } }
+function handleQuery() { query.pageNum = 1; fetchData() }
 function resetQuery() { Object.assign(query, { deviceId: '', level: '', status: '', pageNum: 1 }); fetchData() }
 async function confirmAlert(id: string) { await confirmApi(id); ElMessage.success("已确认"); fetchData() }
 async function resolveAlert(id: string) { await resolveApi(id); ElMessage.success("已恢复"); fetchData() }

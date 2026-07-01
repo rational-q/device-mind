@@ -22,6 +22,8 @@ public class SessionManager {
 
     @Autowired
     private SessionStore sessionStore;
+    @Autowired
+    private SubscriptionManager subscriptionManager;
 
     // clientId → 会话（内存主副本）
     private final ConcurrentHashMap<String, DeviceSession> sessions = new ConcurrentHashMap<>();
@@ -29,19 +31,27 @@ public class SessionManager {
     private final ConcurrentHashMap<String, String> channelToClientId = new ConcurrentHashMap<>();
 
     /**
-     * 注册设备连接（原子操作，内存 + Redis 双写）
+     * 注册设备连接（原子操作，内存 + Redis 双写）。
+     * <p>
+     * 顶号：用 compute 原子替换旧会话，先清理旧 channel 的映射与订阅，再关闭旧 channel，
+     * 避免旧 channel 的 channelInactive 异步回调误删新会话。
      */
     public void register(DeviceSession session) {
         String clientId = session.getClientId();
         String channelKey = session.getChannel().id().asLongText();
 
-        DeviceSession old = sessions.put(clientId, session);
-        if (old != null) {
-            log.warn("重复的设备ID {} 上线，踢掉旧连接", clientId);
-            String oldKey = old.getChannel().id().asLongText();
-            channelToClientId.remove(oldKey);
-            old.getChannel().close();
-        }
+        sessions.compute(clientId, (id, old) -> {
+            if (old != null && old.getChannel() != session.getChannel()) {
+                log.warn("重复的设备ID {} 上线，踢掉旧连接", clientId);
+                Channel oldChannel = old.getChannel();
+                // 先摘除旧 channel 的所有映射/订阅，标记为「已被顶号」防止其 inactive 回调误删新会话
+                channelToClientId.remove(oldChannel.id().asLongText());
+                subscriptionManager.removeChannel(oldChannel);
+                oldChannel.attr(com.devicemind.broker.handler.ConnectHandler.CLIENT_ID).set(null);
+                oldChannel.close();
+            }
+            return session;
+        });
         channelToClientId.put(channelKey, clientId);
 
         // 持久化到 Redis
@@ -55,22 +65,28 @@ public class SessionManager {
     }
 
     /**
-     * 设备断开连接（内存 + Redis 双删）
+     * 设备断开连接（内存 + Redis 双删）。
+     * <p>
+     * 用 remove(key, value) 条件删除：仅当内存中该 clientId 仍指向本 channel 的会话时才移除，
+     * 避免顶号后旧 channel 的 inactive 回调误删新会话。
      */
     public void unregister(Channel channel) {
         String longId = channel.id().asLongText();
         String clientId = channelToClientId.remove(longId);
         if (clientId != null) {
-            sessions.remove(clientId);
-
-            // 从 Redis 清除
-            try {
-                sessionStore.remove(clientId);
-            } catch (Exception e) {
-                log.error("Redis 会话清除失败: clientId={}", clientId, e);
+            DeviceSession current = sessions.get(clientId);
+            // 仅当当前会话确实是本 channel 才删除（顶号场景下 current.channel 已是新 channel）
+            if (current != null && current.getChannel() == channel) {
+                sessions.remove(clientId);
+                try {
+                    sessionStore.remove(clientId);
+                } catch (Exception e) {
+                    log.error("Redis 会话清除失败: clientId={}", clientId, e);
+                }
+                log.info("设备下线: clientId={}, 在线数: {}", clientId, sessions.size());
+            } else {
+                log.debug("旧 channel 下线，当前会话已被顶号，跳过删除: clientId={}", clientId);
             }
-
-            log.info("设备下线: clientId={}, 在线数: {}", clientId, sessions.size());
         }
     }
 

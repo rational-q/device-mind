@@ -7,7 +7,7 @@
       <el-row :gutter="16">
         <el-col :span="6"><el-form-item label="产品标识"><el-input v-model="query.productKey" placeholder="模糊搜索" clearable /></el-form-item></el-col>
         <el-col :span="6"><el-form-item label="名称"><el-input v-model="query.name" placeholder="模糊搜索" clearable /></el-form-item></el-col>
-        <el-col :span="4"><el-form-item><el-button type="primary" @click="fetchData">查询</el-button><el-button @click="resetQuery">重置</el-button></el-form-item></el-col>
+        <el-col :span="4"><el-form-item><el-button type="primary" @click="handleQuery">查询</el-button><el-button @click="resetQuery">重置</el-button></el-form-item></el-col>
       </el-row>
     </el-form>
     <el-table :data="tableData" border stripe v-loading="loading">
@@ -70,6 +70,7 @@ const rules = { productKey: [{ required: true, message: '必填' }], name: [{ re
 const formTitle = computed(() => form.id ? '编辑产品' : '新增产品')
 
 async function fetchData() { loading.value = true; try { const res = await getProductList({ ...query }); tableData.value = res.records; total.value = res.total } finally { loading.value = false } }
+function handleQuery() { query.pageNum = 1; fetchData() }
 function resetQuery() { Object.assign(query, { productKey: '', name: '', pageNum: 1 }); fetchData() }
 function openDialog(row?: ProductVO) {
   if (row) Object.assign(form, row)

@@ -5,7 +5,7 @@
       <el-row :gutter="16">
         <el-col :span="6"><el-form-item label="产品类型"><el-input v-model="query.deviceType" placeholder="如 TEMP_SENSOR_V1" clearable /></el-form-item></el-col>
         <el-col :span="5"><el-form-item label="等级"><el-select v-model="query.level" clearable style="width:100%"><el-option value="WARN" label="警告" /><el-option value="CRITICAL" label="严重" /></el-select></el-form-item></el-col>
-        <el-col :span="4"><el-form-item><el-button type="primary" @click="fetchData">查询</el-button></el-form-item></el-col>
+        <el-col :span="4"><el-form-item><el-button type="primary" @click="handleQuery">查询</el-button></el-form-item></el-col>
       </el-row>
     </el-form>
     <el-table :data="tableData" border stripe v-loading="loading">
@@ -57,6 +57,7 @@ const dialogVisible = ref(false)
 const form = reactive<any>({ id: null, ruleName: '', deviceType: '', attrName: '', operator: '>', threshold: 0, durationSeconds: 60, level: 'WARN', enabled: true })
 const rules = { ruleName: [{ required: true, message: "请输入规则名称" }], deviceType: [{ required: true, message: "请输入产品类型" }], attrName: [{ required: true, message: "请输入属性名" }], operator: [{ required: true, message: "请选择运算符" }], threshold: [{ required: true, message: "请输入阈值" }], level: [{ required: true, message: "请选择等级" }] }
 async function fetchData() { loading.value = true; try { const res = await getAlertRuleList(query); tableData.value = res.records; total.value = res.total } finally { loading.value = false } }
+function handleQuery() { query.pageNum = 1; fetchData() }
 function openDialog(row?: AlertRuleVO) { if (row) Object.assign(form, row); else Object.assign(form, { id: null, ruleName: '', deviceType: '', attrName: '', operator: '>', threshold: 0, durationSeconds: 60, level: 'WARN', enabled: true }); dialogVisible.value = true }
 async function handleSave() { if (form.id) { await updateAlertRule(form.id, form); ElMessage.success("更新成功") } else { await createAlertRule(form); ElMessage.success("创建成功") }; dialogVisible.value = false; fetchData() }
 async function handleDelete(id: string) { await deleteAlertRule(id); ElMessage.success("删除成功"); fetchData() }

@@ -79,15 +79,32 @@ public abstract class AbstractDeviceDataProcessor implements DeviceDataProcessor
         return t;
     });
 
+    /**
+     * 场景动作执行线程池。
+     * <p>
+     * 场景动作链里可能含 DELAY（Thread.sleep），若在 Kafka 消费线程内同步执行会阻塞
+     * 整批消息 ack、拖慢入库。故将场景动作执行异步化，与数据入库解耦。
+     */
+    private final ExecutorService sceneActionExecutor = Executors.newFixedThreadPool(4, r -> {
+        Thread t = new Thread(r, "scene-action");
+        t.setDaemon(true);
+        return t;
+    });
+
     @PreDestroy
     public void shutdown() {
-        alertAnalysisExecutor.shutdown();
+        shutdownExecutor(alertAnalysisExecutor);
+        shutdownExecutor(sceneActionExecutor);
+    }
+
+    private void shutdownExecutor(ExecutorService executor) {
+        executor.shutdown();
         try {
-            if (!alertAnalysisExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
-                alertAnalysisExecutor.shutdownNow();
+            if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
             }
         } catch (InterruptedException e) {
-            alertAnalysisExecutor.shutdownNow();
+            executor.shutdownNow();
             Thread.currentThread().interrupt();
         }
     }
@@ -163,10 +180,15 @@ public abstract class AbstractDeviceDataProcessor implements DeviceDataProcessor
         for (DeviceDataPoint point : points) {
             for (DmAlertRule rule : rules) {
                 if (!rule.getAttrName().equals(point.getAttrName())) continue;
-                if (!evaluateCondition(point, rule)) continue;
-                if (!isWindowSustained(point, rule)) continue;
-                if (hasActiveAlert(point.getDeviceId(), rule.getId())) continue;
-                createAlert(point, rule);
+                boolean conditionMet = evaluateCondition(point, rule);
+                if (conditionMet) {
+                    if (!isWindowSustained(point, rule)) continue;
+                    if (hasActiveAlert(point.getDeviceId(), rule.getId())) continue;
+                    createAlert(point, rule);
+                } else {
+                    // 指标已恢复正常 → 自动将活跃告警置为 RESOLVED
+                    autoResolveAlerts(point.getDeviceId(), rule.getId());
+                }
             }
         }
     }
@@ -184,24 +206,55 @@ public abstract class AbstractDeviceDataProcessor implements DeviceDataProcessor
         };
     }
 
+    /**
+     * 判定"持续时间窗口"内是否真正满足告警条件。
+     * <p>
+     * 规则（duration &gt; 0 时）：窗口 [t-duration, t] 内
+     * <ol>
+     *   <li>必须有历史数据点（空窗口不触发，避免单点误判）；</li>
+     *   <li>窗口内所有点都满足条件（任一点不满足即视为未持续）；</li>
+     *   <li>最早的数据点时间必须已到达/早于 windowStart，
+     *       即窗口被数据真正覆盖满 N 秒，否则说明刚开始超阈值、还不够时长。</li>
+     * </ol>
+     * duration &lt;= 0 时表示无持续要求，当前点满足即触发。
+     */
     private boolean isWindowSustained(DeviceDataPoint point, DmAlertRule rule) {
-        long windowStart = point.getTimestamp() - rule.getDurationSeconds();
+        int duration = rule.getDurationSeconds() != null ? rule.getDurationSeconds() : 0;
+        if (duration <= 0) {
+            // 无持续要求：当前点已在 evaluateCondition 判过，直接放行
+            return true;
+        }
+        long windowStart = point.getTimestamp() - duration;
         try {
             List<DmDeviceData> windowData = dmDeviceDataService.lambdaQuery()
                     .eq(DmDeviceData::getDeviceId, point.getDeviceId())
                     .eq(DmDeviceData::getAttrName, rule.getAttrName())
                     .ge(DmDeviceData::getTime, Instant.ofEpochSecond(windowStart))
                     .le(DmDeviceData::getTime, Instant.ofEpochSecond(point.getTimestamp()))
-                    .orderByDesc(DmDeviceData::getTime)
+                    .orderByAsc(DmDeviceData::getTime)
                     .list();
-            if (windowData.isEmpty()) return true;
+
+            // 1. 窗口内无数据 → 不足以判定持续，不触发
+            if (windowData.isEmpty()) return false;
+
+            // 2. 窗口内所有点都必须满足条件
             for (DmDeviceData data : windowData) {
-                if (data.getValue() != null && !evaluateConditionRaw(data.getValue(), rule))
+                if (data.getValue() == null || !evaluateConditionRaw(data.getValue(), rule)) {
                     return false;
+                }
+            }
+
+            // 3. 最早的数据点必须已覆盖 windowStart（数据真正跨越了整个窗口）
+            DmDeviceData earliest = windowData.get(0);
+            if (earliest.getTime() == null
+                    || earliest.getTime().getEpochSecond() > windowStart) {
+                // 窗口起点没有数据覆盖，说明超阈值时长还不够 duration 秒
+                return false;
             }
             return true;
         } catch (Exception e) {
-            log.warn("滑动窗口查询异常，降级为允许触发: deviceId={}, attr={}", point.getDeviceId(), rule.getAttrName());
+            log.warn("滑动窗口查询异常，为避免漏报降级为允许触发: deviceId={}, attr={}",
+                    point.getDeviceId(), rule.getAttrName(), e);
             return true;
         }
     }
@@ -218,12 +271,37 @@ public abstract class AbstractDeviceDataProcessor implements DeviceDataProcessor
         };
     }
 
+    /**
+     * 是否存在活跃告警（TRIGGERED 或 CONFIRMED 均视为活跃，避免确认后重复触发）
+     */
     private boolean hasActiveAlert(String deviceId, Long ruleId) {
         return alertService.lambdaQuery()
                 .eq(DmAlert::getDeviceId, deviceId)
                 .eq(DmAlert::getRuleId, ruleId)
-                .eq(DmAlert::getStatus, "TRIGGERED")
+                .in(DmAlert::getStatus, "TRIGGERED", "CONFIRMED")
                 .count() > 0;
+    }
+
+    /**
+     * 指标恢复正常时，将该设备+规则下所有活跃告警（TRIGGERED/CONFIRMED）
+     * 自动置为 RESOLVED 并记录恢复时间。
+     */
+    private void autoResolveAlerts(String deviceId, Long ruleId) {
+        try {
+            DmAlert update = new DmAlert();
+            update.setStatus("RESOLVED");
+            update.setResolvedAt(new Date());
+            boolean resolved = alertService.lambdaUpdate()
+                    .eq(DmAlert::getDeviceId, deviceId)
+                    .eq(DmAlert::getRuleId, ruleId)
+                    .in(DmAlert::getStatus, "TRIGGERED", "CONFIRMED")
+                    .update(update);
+            if (resolved) {
+                log.info("指标恢复正常，自动恢复告警: deviceId={}, ruleId={}", deviceId, ruleId);
+            }
+        } catch (Exception e) {
+            log.warn("自动恢复告警失败: deviceId={}, ruleId={}", deviceId, ruleId, e);
+        }
     }
 
     private void createAlert(DeviceDataPoint point, DmAlertRule rule) {
@@ -282,7 +360,9 @@ public abstract class AbstractDeviceDataProcessor implements DeviceDataProcessor
             for (DmScene scene : scenes) {
                 try {
                     if (!matchSceneCondition(point, scene)) continue;
-                    executeSceneActions(point, scene);
+                    // 场景动作可能含 DELAY，异步执行避免阻塞 Kafka 消费线程
+                    CompletableFuture.runAsync(
+                            () -> executeSceneActions(point, scene), sceneActionExecutor);
                 } catch (Exception e) {
                     log.warn("场景评估异常: sceneId={}, deviceId={}", scene.getId(), point.getDeviceId(), e);
                 }
@@ -307,9 +387,57 @@ public abstract class AbstractDeviceDataProcessor implements DeviceDataProcessor
                 case "==" -> value == threshold;
                 default -> false;
             };
-            if (matched) return true;
+            if (!matched) continue;
+
+            // 持续时间校验：条件配了 duration(秒) 时，需窗口内持续满足才算命中
+            Object durationObj = cond.get("duration");
+            if (durationObj instanceof Number n && n.intValue() > 0) {
+                if (!isSceneWindowSustained(point, attr, operator, threshold, n.intValue())) {
+                    continue;
+                }
+            }
+            return true;
         }
         return false;
+    }
+
+    /**
+     * 场景条件的持续时间窗口判定（复用与告警一致的语义）
+     */
+    private boolean isSceneWindowSustained(DeviceDataPoint point, String attr,
+                                           String operator, double threshold, int duration) {
+        long windowStart = point.getTimestamp() - duration;
+        try {
+            List<DmDeviceData> windowData = dmDeviceDataService.lambdaQuery()
+                    .eq(DmDeviceData::getDeviceId, point.getDeviceId())
+                    .eq(DmDeviceData::getAttrName, attr)
+                    .ge(DmDeviceData::getTime, Instant.ofEpochSecond(windowStart))
+                    .le(DmDeviceData::getTime, Instant.ofEpochSecond(point.getTimestamp()))
+                    .orderByAsc(DmDeviceData::getTime)
+                    .list();
+            if (windowData.isEmpty()) return false;
+            for (DmDeviceData data : windowData) {
+                if (data.getValue() == null || !compare(data.getValue(), operator, threshold)) {
+                    return false;
+                }
+            }
+            DmDeviceData earliest = windowData.get(0);
+            return earliest.getTime() != null && earliest.getTime().getEpochSecond() <= windowStart;
+        } catch (Exception e) {
+            log.warn("场景滑动窗口查询异常，降级为允许触发: deviceId={}, attr={}", point.getDeviceId(), attr, e);
+            return true;
+        }
+    }
+
+    private boolean compare(double value, String operator, double threshold) {
+        return switch (operator) {
+            case ">" -> value > threshold;
+            case ">=" -> value >= threshold;
+            case "<" -> value < threshold;
+            case "<=" -> value <= threshold;
+            case "==" -> value == threshold;
+            default -> false;
+        };
     }
 
     private void executeSceneActions(DeviceDataPoint point, DmScene scene) {

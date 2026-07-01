@@ -114,6 +114,9 @@ const chartOption = computed(() => ({
 const wsConnected = ref(false)
 let ws: WebSocket | null = null
 let pingTimer: ReturnType<typeof setInterval> | null = null
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let reconnectAttempts = 0
+let manualClose = false
 let dataPointCount = 0
 let lastStatReset = Date.now()
 
@@ -123,6 +126,7 @@ function connectWebSocket() {
 
   ws.onopen = () => {
     wsConnected.value = true
+    reconnectAttempts = 0
     console.log('WebSocket 已连接')
     // 每30秒发送心跳，防止代理/负载均衡断开空闲连接
     pingTimer = setInterval(() => {
@@ -135,8 +139,13 @@ function connectWebSocket() {
   ws.onclose = () => {
     wsConnected.value = false
     if (pingTimer) { clearInterval(pingTimer); pingTimer = null }
-    console.log('WebSocket 断开，3秒后重连')
-    setTimeout(connectWebSocket, 3000)
+    // 组件已卸载/主动关闭时不再重连，避免僵尸连接与定时器泄漏
+    if (manualClose) return
+    // 指数退避重连：3s、6s、12s… 上限 30s
+    reconnectAttempts++
+    const delay = Math.min(3000 * 2 ** (reconnectAttempts - 1), 30000)
+    console.log(`WebSocket 断开，${delay / 1000}秒后重连（第 ${reconnectAttempts} 次）`)
+    reconnectTimer = setTimeout(connectWebSocket, delay)
   }
 
   ws.onmessage = (event) => {
@@ -201,7 +210,9 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  manualClose = true
   if (pingTimer) { clearInterval(pingTimer); pingTimer = null }
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
   ws?.close()
 })
 

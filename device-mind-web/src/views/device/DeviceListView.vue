@@ -5,7 +5,7 @@
       <el-row :gutter="16">
         <el-col :span="6"><el-form-item label="设备ID"><el-input v-model="query.deviceId" placeholder="模糊搜索" clearable /></el-form-item></el-col>
         <el-col :span="5"><el-form-item label="状态"><el-select v-model="query.status" clearable style="width:100%"><el-option label="在线" value="ONLINE" /><el-option label="离线" value="OFFLINE" /></el-select></el-form-item></el-col>
-        <el-col :span="4"><el-form-item><el-button type="primary" @click="fetchData">查询</el-button><el-button @click="resetQuery">重置</el-button></el-form-item></el-col>
+        <el-col :span="4"><el-form-item><el-button type="primary" @click="handleQuery">查询</el-button><el-button @click="resetQuery">重置</el-button></el-form-item></el-col>
       </el-row>
     </el-form>
     <el-table :data="tableData" border stripe v-loading="loading">
@@ -63,6 +63,7 @@ const formRef = ref<FormInstance>()
 const rules = { deviceId: [{ required: true }], productId: [{ required: true }] }
 
 async function fetchData() { loading.value = true; try { const res = await getDeviceList(query); tableData.value = res.records; total.value = res.total } finally { loading.value = false } }
+function handleQuery() { query.pageNum = 1; fetchData() }
 function resetQuery() { Object.assign(query, { deviceId: '', status: '', pageNum: 1 }); fetchData() }
 async function openDialog(row?: DeviceVO) {
   if (!products.value.length) products.value = (await getProductList({ pageSize: 100 })).records

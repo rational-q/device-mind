@@ -81,14 +81,17 @@ public class BrokerServer {
                         @Override
                         protected void initChannel(SocketChannel ch) {
                             ChannelPipeline pipeline = ch.pipeline();
-                            pipeline.addLast(new IdleStateHandler(brokerConfig.getHeartbeatTimeout(), 0, 0, TimeUnit.SECONDS));
+                            // 初始 IdleStateHandler 用配置的默认超时；CONNECT 收到 keepAlive 后
+                            // ConnectHandler 会按 1.5×keepAlive 动态替换（见 ConnectHandler）
+                            pipeline.addLast("idleStateHandler",
+                                    new IdleStateHandler(brokerConfig.getHeartbeatTimeout(), 0, 0, TimeUnit.SECONDS));
                             pipeline.addLast(new HeartbeatTimeoutHandler(sessionManager, subscriptionManager, deviceStatusProducer));
-                            pipeline.addLast(new MqttDecoder());
+                            pipeline.addLast(new MqttDecoder(brokerConfig.getMaxRemainingLength()));
                             pipeline.addLast(new MqttEncoder());
                             pipeline.addLast(new ConnectHandler(sessionManager, deviceAuthService, brokerConfig, deviceStatusProducer));
-                            pipeline.addLast(new SubscribeHandler(subscriptionManager, sessionManager, sessionStore));
+                            pipeline.addLast(new SubscribeHandler(subscriptionManager, sessionManager, sessionStore, brokerConfig));
                             pipeline.addLast(new UnsubscribeHandler(subscriptionManager));
-                            pipeline.addLast(new PublishHandler(messageForwarder, mqttMessageStore));
+                            pipeline.addLast(new PublishHandler(messageForwarder, mqttMessageStore, sessionManager, brokerConfig));
                             pipeline.addLast(new PingReqHandler(sessionManager));
                             pipeline.addLast(new DisconnectHandler(sessionManager, subscriptionManager, deviceStatusProducer));
                             pipeline.addLast(new ExceptionHandler());

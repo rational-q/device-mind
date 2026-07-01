@@ -11,7 +11,11 @@ import com.devicemind.common.utils.TraceContext;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.util.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * MQTT CONNECT 处理器
@@ -19,14 +23,22 @@ import lombok.extern.slf4j.Slf4j;
  * 处理设备连接请求，支持：
  * <ul>
  *   <li>协议版本校验（MQTT 3.1.1，level=4）</li>
+ *   <li>clientId 非空校验</li>
  *   <li>用户名密码认证</li>
  *   <li>设备注册校验</li>
- *   <li>Session 恢复（cleanSession=false 时 sessionPresent=true）</li>
- *   <li>Session 持久化到 Redis</li>
+ *   <li>连接成功后在 channel 上打「已认证」标记（供后续 PUBLISH/SUBSCRIBE 校验）</li>
+ *   <li>按 1.5×keepAlive 动态设置心跳超时</li>
+ *   <li>Session 恢复 + 持久化到 Redis</li>
  * </ul>
  */
 @Slf4j
 public class ConnectHandler extends SimpleChannelInboundHandler<ConnectMessage> {
+
+    /** channel 属性：是否已完成 CONNECT 认证 */
+    public static final AttributeKey<Boolean> AUTHENTICATED = AttributeKey.valueOf("mqtt.authenticated");
+    /** channel 属性：认证通过的 clientId（用于 topic 授权，避免信任 topic 里的 clientId） */
+    public static final AttributeKey<String> CLIENT_ID = AttributeKey.valueOf("mqtt.clientId");
+
     private final SessionManager sessionManager;
     private final DeviceAuthService deviceAuthService;
     private final BrokerConfig brokerConfig;
@@ -57,6 +69,14 @@ public class ConnectHandler extends SimpleChannelInboundHandler<ConnectMessage> 
                 return;
             }
 
+            // clientId 非空校验（MQTT-3.1.3-8：空 clientId 拒绝，返回 0x02）
+            if (clientId == null || clientId.isBlank()) {
+                log.warn("空 clientId，拒绝连接");
+                ctx.writeAndFlush(new ConnAckMessage(0x02, false))
+                        .addListener(ChannelFutureListener.CLOSE);
+                return;
+            }
+
             // 用户名密码认证
             if (brokerConfig.getAuth().isEnabled()) {
                 String expectedUser = brokerConfig.getAuth().getUsername();
@@ -79,6 +99,13 @@ public class ConnectHandler extends SimpleChannelInboundHandler<ConnectMessage> 
                         .addListener(ChannelFutureListener.CLOSE);
                 return;
             }
+
+            // 标记该 channel 已认证 + 记录认证 clientId（供 PUBLISH/SUBSCRIBE 授权校验）
+            ctx.channel().attr(AUTHENTICATED).set(Boolean.TRUE);
+            ctx.channel().attr(CLIENT_ID).set(clientId);
+
+            // 按 1.5×keepAlive 动态设置心跳超时（keepAlive=0 表示不启用，用默认值）
+            adjustIdleTimeout(ctx, msg.getKeepAlive());
 
             // 判断是否恢复旧会话
             boolean sessionPresent = !msg.isCleanSession() && sessionManager.hasPersistedSession(clientId);
@@ -106,6 +133,22 @@ public class ConnectHandler extends SimpleChannelInboundHandler<ConnectMessage> 
             log.info("已回复 CONNACK 给设备: clientId={}, sessionPresent={}", clientId, sessionPresent);
         } finally {
             TraceContext.clear();
+        }
+    }
+
+    /**
+     * 按 MQTT 3.1.1 建议以 1.5×keepAlive 作为读超时，替换初始 IdleStateHandler。
+     */
+    private void adjustIdleTimeout(ChannelHandlerContext ctx, int keepAlive) {
+        if (keepAlive <= 0) return; // 0 = 客户端不启用 keepAlive，保留默认超时
+        int timeout = (int) Math.ceil(keepAlive * 1.5);
+        try {
+            if (ctx.pipeline().get("idleStateHandler") != null) {
+                ctx.pipeline().replace("idleStateHandler", "idleStateHandler",
+                        new IdleStateHandler(timeout, 0, 0, TimeUnit.SECONDS));
+            }
+        } catch (Exception e) {
+            log.warn("动态调整心跳超时失败，沿用默认: keepAlive={}", keepAlive, e);
         }
     }
 }
